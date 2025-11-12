@@ -15,3 +15,6 @@ This PowerShell script is designed to remove unnecessary Windows pre-installed a
 powershell.exe -ExecutionPolicy Bypass -File RemoveBloat.ps1
 ```
 The script may run silently or prompt for some inputs depending on its version.
+
+
+## Debloat-Windows Implementation using Intune
