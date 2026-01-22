@@ -12,14 +12,14 @@ Else {
 $templateFilePath = "C:\ProgramData\Debloat"
 
 # Direct raw.githubusercontent URL (user-provided)
-$scriptRawUrl = "https://raw.githubusercontent.com/TiQHUB/Debloat-Windows/refs/heads/main/RemoveBloat.ps1"
+$scriptRawUrl = "https://raw.githubusercontent.com/TiQHUB/Debloat-Windows/refs/heads/main/DebloatWindows.ps1"
 # Human-friendly blob URL (kept for reference)
-$scriptBlobUrl = "https://github.com/TiQHUB/Debloat-Windows/blob/main/RemoveBloat.ps1"
-$scriptPath = "$templateFilePath\RemoveBloat.ps1"
+$scriptBlobUrl = "https://github.com/TiQHUB/Debloat-Windows/blob/main/DebloatWindows.ps1"
+$scriptPath = "$templateFilePath\DebloatWindows.ps1"
 
 # Ensure target folder exists (created earlier in the script)
 # Download the script directly (no zip/unzip required)
-Write-Output "Downloading RemoveBloat.ps1 from $scriptBlobUrl (raw: $scriptRawUrl)"
+Write-Output "Downloading DebloatWindows.ps1 from $scriptBlobUrl (raw: $scriptRawUrl)"
 Invoke-WebRequest -Uri $scriptRawUrl -OutFile $scriptPath -UseBasicParsing
 
 
