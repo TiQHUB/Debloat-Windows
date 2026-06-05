@@ -1,23 +1,3 @@
-<#
-.SYNOPSIS
-.Removes bloat from a fresh Windows build
-.DESCRIPTION
-.Removes AppX Packages
-.Disables Cortana
-.Removes McAfee
-.Removes HP Bloat
-.Removes Dell Bloat
-.Removes Lenovo Bloat
-.Windows 10 and Windows 11 Compatible
-.Removes any unwanted installed applications
-.Removes unwanted services and tasks
-.Removes Edge Surf Game
-
-.INPUTS
-.OUTPUTS
-C:\ProgramData\Debloat\Debloat.log
-.NOTES
-Modified By:TiQHUB Team
 
 ############################################################################################################
 #                                         Initial Setup                                                    #
@@ -25,7 +5,9 @@ Modified By:TiQHUB Team
 ############################################################################################################
 param (
     [string[]]$customwhitelist,
-    [string[]]$TasksToRemove  # Add this parameter for scheduled tasks to remove
+    [string[]]$TasksToRemove,  # Add this parameter for scheduled tasks to remove
+    [string[]]$custombloatlist
+
 )
 
 ##Elevate if needed
@@ -145,7 +127,9 @@ $WhitelistedApps = @(
     'Microsoft.MicrosoftEdge.Stable',
     'Microsoft.MPEG2VideoExtension',
     'Microsoft.HEVCVideoExtension',
-    'Microsoft.AV1VideoExtension'
+    'Microsoft.AV1VideoExtension',
+    'Microsoft.RawImageExtension',
+    'Microsoft.AVCEncoderVideoExtension'
 )
 ##If $customwhitelist is set, split on the comma and add to whitelist
 if ($customwhitelist) {
@@ -227,32 +211,12 @@ $NonRemovable = @(
 )
 
 ##Combine the two arrays
-$appstoignore = $WhitelistedApps += $NonRemovable
+$appstoignore = $WhitelistedApps + $NonRemovable
+
 
 ##Bloat list for future reference
 $Bloatware = @(
     #Unnecessary Windows 10/11 AppX Apps
-    "*ActiproSoftwareLLC*"
-    "*AdobeSystemsIncorporated.AdobePhotoshopExpress*"
-    "*BubbleWitch3Saga*"
-    "*CandyCrush*"
-    "*DevHome*"
-    "*Disney*"
-    "*Dolby*"
-    "*Duolingo-LearnLanguagesforFree*"
-    "*EclipseManager*"
-    "*Facebook*"
-    "*Flipboard*"
-    "*gaming*"
-    "*Minecraft*"
-    "*Office*"
-    "*PandoraMediaInc*"
-    "*Royal Revolt*"
-    "*Speed Test*"
-    "*Spotify*"
-    "*Sway*"
-    "*Twitter*"
-    "*Wunderlist*"
     "AD2F1837.HPPrinterControl"
     "AppUp.IntelGraphicsExperience"
     "C27EB4BA.DropboxOEM*"
@@ -311,6 +275,11 @@ $Bloatware = @(
     "SpotifyAB.SpotifyMusic"
     "5A894077.McAfeeSecurity"
     "5A894077.McAfeeSecurity_2.1.27.0_x64__wafk5atnkzcwy"
+    "Adobe Creative Cloud All Apps 2-month membership"
+    "Intel Connectivity Performance Suite"
+    "Intel Unison"
+    "McAfeeWPSSparsePackage_0j6k21vdgrmfw"
+    "Microsoft.Edge.GameAssist"
     #Optional: Typically not removed but you can if you need to for some reason
     #"*Microsoft.Advertising.Xaml_10.1712.5.0_x64__8wekyb3d8bbwe*"
     #"*Microsoft.Advertising.Xaml_10.1712.5.0_x86__8wekyb3d8bbwe*"
@@ -329,6 +298,22 @@ $Bloatware = @(
     #"Microsoft.PowerAutomateDesktop"
     #"MicrosoftWindows.Client.WebExperience"
 )
+
+##If $customwhitelist is set, split on the comma and add to whitelist
+if ($custombloatlist) {
+    $custombloatlistapps = $custombloatlist -split ","
+
+    $Bloatware += $custombloatlistapps
+
+    foreach ($pattern in $custombloatlistapps) {
+        $appstoignore = $appstoignore | Where-Object { $_ -notlike $pattern }
+    }
+}
+
+
+##Give them a quick de-dup
+$appstoignore = $appstoignore | Sort-Object -Unique
+$Bloatware    = $Bloatware    | Sort-Object -Unique
 
 
 $provisioned = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -in $Bloatware -and $_.DisplayName -notin $appstoignore -and $_.DisplayName -notlike 'MicrosoftWindows.Voice*' -and $_.DisplayName -notlike 'Microsoft.LanguageExperiencePack*' -and $_.DisplayName -notlike 'MicrosoftWindows.Speech*' }
@@ -452,17 +437,19 @@ foreach ($sid in $UserSIDs) {
     }
     Set-ItemProperty $WebSearch BingSearchEnabled -Value 0
 }
-
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 Set-ItemProperty "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search" BingSearchEnabled -Value 0
-
+}
 
 #Stops the Windows Feedback Experience from sending anonymous data
 write-output "Stopping the Windows Feedback Experience program"
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $Period = "HKCU:\Software\Microsoft\Siuf\Rules"
 If (!(Test-Path $Period)) {
     New-Item $Period
 }
 Set-ItemProperty $Period PeriodInNanoSeconds -Value 0
+}
 
 ##Loop and do the same
 foreach ($sid in $UserSIDs) {
@@ -489,7 +476,7 @@ If (!(Test-Path $registryPath)) {
     New-Item $registryPath
 }
 Set-ItemProperty $registryPath DisableWindowsConsumerFeatures -Value 1
-
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 If (!(Test-Path $registryOEM)) {
     New-Item $registryOEM
 }
@@ -499,7 +486,7 @@ Set-ItemProperty $registryOEM  PreInstalledAppsEnabled -Value 0
 Set-ItemProperty $registryOEM  PreInstalledAppsEverEnabled -Value 0
 Set-ItemProperty $registryOEM  SilentInstalledAppsEnabled -Value 0
 Set-ItemProperty $registryOEM  SystemPaneSuggestionsEnabled -Value 0
-
+}
 ##Loop through users and do the same
 foreach ($sid in $UserSIDs) {
     $registryOEM = "Registry::HKU\$sid\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
@@ -516,11 +503,12 @@ foreach ($sid in $UserSIDs) {
 
 #Preping mixed Reality Portal for removal
 write-output "Setting Mixed Reality Portal value to 0 so that you can uninstall it in Settings"
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $Holo = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Holographic"
 If (Test-Path $Holo) {
     Set-ItemProperty $Holo  FirstRunSucceeded -Value 0
 }
-
+}
 ##Loop through users and do the same
 foreach ($sid in $UserSIDs) {
     $Holo = "Registry::HKU\$sid\Software\Microsoft\Windows\CurrentVersion\Holographic"
@@ -546,11 +534,13 @@ Set-ItemProperty $WifiSense3  AutoConnectAllowedOEM -Value 0
 
 #Disables live tiles
 write-output "Disabling live tiles"
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $Live = "HKCU:\SOFTWARE\Policies\Microsoft\Windows\CurrentVersion\PushNotifications"
 If (!(Test-Path $Live)) {
     New-Item $Live
 }
 Set-ItemProperty $Live  NoTileApplicationNotification -Value 1
+}
 
 ##Loop through users and do the same
 foreach ($sid in $UserSIDs) {
@@ -595,11 +585,12 @@ foreach ($sid in $UserSIDs) {
 
 #Disables People icon on Taskbar
 write-output "Disabling People icon on Taskbar"
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $People = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\People'
 If (Test-Path $People) {
     Set-ItemProperty $People -Name PeopleBand -Value 0
 }
-
+}
 ##Loop through users and do the same
 foreach ($sid in $UserSIDs) {
     $People = "Registry::HKU\$sid\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\People"
@@ -609,6 +600,7 @@ foreach ($sid in $UserSIDs) {
 }
 
 write-output "Disabling Cortana"
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $Cortana1 = "HKCU:\SOFTWARE\Microsoft\Personalization\Settings"
 $Cortana2 = "HKCU:\SOFTWARE\Microsoft\InputPersonalization"
 $Cortana3 = "HKCU:\SOFTWARE\Microsoft\InputPersonalization\TrainedDataStore"
@@ -625,6 +617,7 @@ If (!(Test-Path $Cortana3)) {
     New-Item $Cortana3
 }
 Set-ItemProperty $Cortana3 HarvestContacts -Value 0
+}
 
 ##Loop through users and do the same
 foreach ($sid in $UserSIDs) {
@@ -706,9 +699,11 @@ New-ItemProperty -Path $registryPath2 -Name $name6 -Value 0 -PropertyType DWord 
 
 #Turn off Learn about this picture
 write-output "Disabling Learn about this picture"
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $picture = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel'
 If (Test-Path $picture) {
     Set-ItemProperty $picture -Name "{2cc5ca98-6485-489a-920e-b3e88a6ccce3}" -Value 1
+}
 }
 
 ##Loop through users and do the same
@@ -743,10 +738,12 @@ If (Test-Path $consumer) {
 ############################################################################################################
 
 write-output "Disabling Windows Spotlight on lockscreen"
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $spotlight = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
 If (Test-Path $spotlight) {
     Set-ItemProperty $spotlight -Name "RotatingLockScreenOverlayEnabled" -Value 0
     Set-ItemProperty $spotlight -Name "RotatingLockScreenEnabled" -Value 0
+}
 }
 
 ##Loop through users and do the same
@@ -759,10 +756,12 @@ foreach ($sid in $UserSIDs) {
 }
 
 write-output "Disabling Windows Spotlight on background"
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $spotlight = 'HKCU:\Software\Policies\Microsoft\Windows\CloudContent'
 If (Test-Path $spotlight) {
     Set-ItemProperty $spotlight -Name "DisableSpotlightCollectionOnDesktop" -Value 1
     Set-ItemProperty $spotlight -Name "DisableWindowsSpotlightFeatures" -Value 1
+}
 }
 
 ##Loop through users and do the same
@@ -780,10 +779,12 @@ foreach ($sid in $UserSIDs) {
 ############################################################################################################
 
 write-output "Adding GameDVR Fix"
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $gamedvr = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\GameDVR'
 If (Test-Path $gamedvr) {
     Set-ItemProperty $gamedvr -Name "AppCaptureEnabled" -Value 0
     Set-ItemProperty $gamedvr -Name "NoWinKeys" -Value 1
+}
 }
 
 ##Loop through users and do the same
@@ -795,9 +796,11 @@ foreach ($sid in $UserSIDs) {
     }
 }
 
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $gameconfig = 'HKCU:\System\GameConfigStore'
 If (Test-Path $gameconfig) {
     Set-ItemProperty $gameconfig -Name "GameDVR_Enabled" -Value 0
+}
 }
 
 ##Loop through users and do the same
@@ -1006,12 +1009,13 @@ If (!(Test-Path $recall)) {
 }
 Set-ItemProperty $recall DisableAIDataAnalysis -Value 1
 
-
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 $recalluser = 'HKCU:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI'
 If (!(Test-Path $recalluser)) {
     New-Item $recalluser
 }
 Set-ItemProperty $recalluser DisableAIDataAnalysis -Value 1
+}
 
 ##Loop through users and do the same
 foreach ($sid in $UserSIDs) {
@@ -1086,7 +1090,7 @@ if ($version -like "*Windows 11*") {
 
     $nonAdminLoggedOn = $false
     foreach ($user in $userprofiles) {
-        if ($user.PSChildName -ne '.DEFAULT' -and $user.PSChildName -ne 'S-1-5-18' -and $user.PSChildName -ne 'S-1-5-19' -and $user.PSChildName -ne 'S-1-5-20' -and $user.PSChildName -notmatch 'S-1-5-21-\d+-\d+-\d+-500') {
+       if ($user.PSChildName -ne '.DEFAULT' -and $user.PSChildName -ne 'S-1-5-18' -and $user.PSChildName -ne 'S-1-5-19' -and $user.PSChildName -ne 'S-1-5-20' -and $user.PSChildName -notmatch 'S-1-5-21-\d+-\d+-\d+-500' -and $user.ProfileImagePath -notlike '*\defaultuser0') {
             $nonAdminLoggedOn = $true
             break
         }
@@ -1121,7 +1125,8 @@ if (Test-Path "$env:WinDir\System32\GameBarPresenceWriter.exe") {
     #Take-Ownership -Path "$env:WinDir\System32\GameBarPresenceWriter.exe"
     $NewAcl = Get-Acl -Path "$env:WinDir\System32\GameBarPresenceWriter.exe"
     # Set properties
-    $identity = "$builtin\Administrators"
+    $adminGroupName = (Get-CimInstance Win32_Group -Filter "SID='S-1-5-32-544'" -ErrorAction SilentlyContinue).Name
+    $identity = "$builtin\$adminGroupName"    
     $fileSystemRights = "FullControl"
     $type = "Allow"
     # Create new rule
@@ -1174,6 +1179,28 @@ New-ItemProperty -Path $surf -Name 'AllowSurfGame' -Value 0 -PropertyType DWord
 #}
 
 ############################################################################################################
+#                                            Misc Shortcut Removal                                         #
+#                                                                                                          #
+############################################################################################################
+
+$link1 = "C:\Users\All Users\Microsoft\Windows\Start Menu\Programs\Benutzerhandbuch.lnk"
+
+$link2 = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Benutzerhandbuch.lnk"
+
+if (Test-Path $link1) {
+    Remove-Item $link1 -Force
+    Write-Output "Removed Benutzerhandbuch.lnk from All Users Start Menu."
+} else {
+    Write-Output "Benutzerhandbuch.lnk not found in All Users Start Menu."
+}
+if (Test-Path $link2) {
+    Remove-Item $link2 -Force
+    Write-Output "Removed Benutzerhandbuch.lnk from ProgramData Start Menu."
+} else {
+    Write-Output "Benutzerhandbuch.lnk not found in ProgramData Start Menu."
+}
+
+############################################################################################################
 #                                       Grab all Uninstall Strings                                         #
 #                                                                                                          #
 ############################################################################################################
@@ -1190,7 +1217,7 @@ foreach ($32app in $32apps) {
     #Get uninstall string
     $string1 = $32app.uninstallstring
     #Check if it's an MSI install
-    if ($string1 -match "^msiexec*") {
+    if ($string1 -match "^\s*(C:\\Windows\\System32\\)?msiexec(\.exe)?\s+\S*") {
         #MSI install, replace the I with an X and make it quiet
         $string2 = $string1 + " /quiet /norestart"
         $string2 = $string2 -replace "/I", "/X "
@@ -1222,7 +1249,7 @@ foreach ($64app in $64apps) {
     #Get uninstall string
     $string1 = $64app.uninstallstring
     #Check if it's an MSI install
-    if ($string1 -match "^msiexec*") {
+    if ($string1 -match "^\s*(C:\\Windows\\System32\\)?msiexec(\.exe)?\s+\S*") {
         #MSI install, replace the I with an X and make it quiet
         $string2 = $string1 + " /quiet /norestart"
         $string2 = $string2 -replace "/I", "/X "
@@ -1244,7 +1271,7 @@ foreach ($64app in $64apps) {
 }
 
 write-output "64-bit checks complete"
-
+if ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SYSTEM") {
 ##USER
 write-output "Checking 32-bit User Registry"
 ##Search for 32-bit versions and list them
@@ -1258,7 +1285,7 @@ if (Test-Path $path1) {
         #Get uninstall string
         $string1 = $32app.uninstallstring
         #Check if it's an MSI install
-        if ($string1 -match "^msiexec*") {
+        if ($string1 -match "^\s*(C:\\Windows\\System32\\)?msiexec(\.exe)?\s+\S*") {
             #MSI install, replace the I with an X and make it quiet
             $string2 = $string1 + " /quiet /norestart"
             $string2 = $string2 -replace "/I", "/X "
@@ -1290,7 +1317,7 @@ foreach ($64app in $64apps) {
     #Get uninstall string
     $string1 = $64app.uninstallstring
     #Check if it's an MSI install
-    if ($string1 -match "^msiexec*") {
+    if ($string1 -match "^\s*(C:\\Windows\\System32\\)?msiexec(\.exe)?\s+\S*") {
         #MSI install, replace the I with an X and make it quiet
         $string2 = $string1 + " /quiet /norestart"
         $string2 = $string2 -replace "/I", "/X "
@@ -1308,9 +1335,20 @@ foreach ($64app in $64apps) {
             String = $string2
         }
     }
-
+}
 }
 
+
+function parseExeUninstall {
+
+    param (
+        [string]$exeString
+    )
+
+    $pattern = ' +(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)'
+    
+    return $exeString -split $pattern
+}
 
 function UninstallAppFull {
 
@@ -1324,29 +1362,86 @@ function UninstallAppFull {
     Where-Object { $null -ne $_.DisplayName } |
     Select-Object DisplayName, UninstallString
 
-    $userInstalledApps = Get-ItemProperty HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* |
-    Where-Object { $null -ne $_.DisplayName } |
-    Select-Object DisplayName, UninstallString
+    if ( [System.Security.Principal.WindowsIdentity]::GetCurrent().Name -ne 'NT AUTHORITY\SYSTEM') {
+        $userInstalledApps = Get-ItemProperty HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* |
+        Where-Object { $null -ne $_.DisplayName } |
+        Select-Object DisplayName, UninstallString
+    }
 
-    $allInstalledApps = $installedApps + $userInstalledApps | Where-Object { $_.DisplayName -eq "$appName" }
+    # Wrapping the two arrays in @( ) forces them to resolve as arrays, including if they're NULL (such as if running in the system context and $userInstalledApps wasn't initialized above).
+    $allInstalledApps = @($installedApps) + @($userInstalledApps) | Where-Object { $_.DisplayName -eq "$appName" }
 
     # Loop through the list of installed applications and uninstall them
-
     foreach ($app in $allInstalledApps) {
+
         $uninstallString = $app.UninstallString
         $displayName = $app.DisplayName
-        if ($uninstallString -match "^msiexec*") {
+        
+        Write-Output "Calling Uninstaller for: $displayName"
+        if ($uninstallString -match "^\s*(C:\\Windows\\System32\\)?msiexec(\.exe)?\s+\S*") {
+            Write-Output "MSI Uninstall detected"
             #MSI install, replace the I with an X and make it quiet
-            $string2 = $uninstallString + " /quiet /norestart"
-            $string2 = $string2 -replace "/I", "/X "
+          
+            $uninstallString -match '(?<content>{.*})' | Out-Null # Out-Null avoids "True" being output without context.
+            $GUID = $matches['content']
+            $uninstallArgs = @(
+                '/X',
+                $GUID,
+                '/quiet',
+                '/norestart',
+                '/qn'
+            )
+           $uninstaller = "msiexec.exe"
+            
+            Write-Output "Uninstall Arguments: $uninstallArgs"
+            
+           # To refactorize back to a single uninstall call, remove here to the next comment. From here...
+            try {
+                Start-Process $uninstaller -ArgumentList $uninstallArgs
+                Write-Output "Successfully called MSI Uninstaller for: $displayName"
+            }
+            catch {
+                Write-Output "Failed to call MSI Uninstaller for: $displayName"
+                Write-Output "UninstallArgs: $uninstallArgs"
+                Write-Output "Error thrown: $($_.Exception.Message)"
+            }
+            # ... to here.
         }
         else {
+            Write-Output "EXE Uninstall detected"
             #Exe installer, run straight path
-            $string2 = $uninstallString
+            Write-Output "Retrieved Uninstall String: $uninstallString"
+            $parsedString = parseExeUninstall -exeString $uninstallString
+            $uninstallArgs = $parsedString | Select-Object -Skip 1
+            $uninstaller = $parsedString[0]
+            
+           # To refactorize back to a single uninstall call, remove here to the next comment. From here...
+            try {
+                Start-Process $uninstaller -ArgumentList $uninstallArgs
+                Write-Output "Successfully called EXE Uninstaller for: $displayName"
+            }
+            catch {
+                Write-Output "Failed to call EXE Uninstaller for: $displayName"
+                Write-Output "Uninstaller: $uninstaller"
+                Write-Output "UninstallArgs: $uninstallArgs"
+                Write-Output "Error thrown: $($_.Exception.Message)"
+            }
+            # ... to here.
         }
-        write-output "Uninstalling: $displayName"
-        Start-Process $string2
-        write-output "Uninstalled: $displayName" -ForegroundColor Green
+        
+       <# Remove this line and it's accompanying end cap to make this section live.
+       try {
+          Start-Process $uninstaller -ArgumentList $uninstallArgs
+          Write-Output "Successfully called uninstaller for: $displayName."
+       }
+       catch {
+            Write-Output "Failed to call Uninstaller for: $displayName"
+            Write-Output "Uninstaller: $uninstaller"
+            Write-Output "UninstallArgs: $uninstallArgs"
+            Write-Output "Error thrown: $($_.Exception.Message)"
+       }
+       I'm the end cap! Don't forget to remove me, if you remove my parent! #>
+       
     }
 }
 
@@ -1395,6 +1490,10 @@ if ($manufacturer -like "*HP*") {
         "HP Insights Analytics - Dependencies"
         "HP Performance Advisor"
         "HP Presence Video"
+        "HP Audio Control"
+        "HP Documentation"
+        "AD2F1837.HPAudioControl"
+        "HP Connect Optimizer"
     )
 
 
@@ -1420,6 +1519,14 @@ if ($manufacturer -like "*HP*") {
 
         if (Get-AppxPackage -allusers -Name $app -ErrorAction SilentlyContinue) {
             Get-AppxPackage -allusers -Name $app | Remove-AppxPackage -AllUsers
+            write-output "Removed $app."
+        }
+        else {
+            write-output "$app not found."
+        }
+
+        if (Get-Package -scope allusers -Name $app -ErrorAction SilentlyContinue) {
+            Get-Package -scope allusers -Name $app | Uninstall-Package -scope AllUsers
             write-output "Removed $app."
         }
         else {
@@ -1475,7 +1582,7 @@ if ($manufacturer -like "*HP*") {
     #Get-CimInstance -ClassName Win32_Product | Where-Object { $_.Name -eq 'HP Security Update Service' } | Invoke-CimMethod -MethodName Uninstall
 
     # Main execution
-    Write-Log "Starting HP security package uninstallation process"
+    Write-output "Starting HP security package uninstallation process"
 
     # Define packages and criteria
     $packagePatterns = @(
@@ -1599,7 +1706,17 @@ foreach ($pattern in $packagePatterns) {
     }
 }
 
-    write-output "Removed HP bloat"
+##Use Winget to catch Wolf Security
+##    Write-Output "Attempting to uninstall HP Wolf Security via Winget"
+##    $ResolveWingetPath = Resolve-Path "C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe"
+##        if ($ResolveWingetPath){
+##               $WingetPath = $ResolveWingetPath[-1].Path
+##        }
+    
+##    $Winget = $WingetPath + "\winget.exe"
+##    &$winget install --id "$appid" --silent --force --accept-package-agreements --accept-source-agreements --exact | out-null
+
+##    write-output "Removed HP bloat"
 }
 
 
@@ -1611,13 +1728,10 @@ if ($manufacturer -like "*Dell*") {
     ##Dell
 
     $UninstallPrograms = @(
-        "Dell Optimizer"
         "Dell Power Manager"
         "DellOptimizerUI"
         "Dell SupportAssist OS Recovery"
         "Dell SupportAssist"
-        "Dell Optimizer Service"
-        "Dell Optimizer Core"
         "DellInc.PartnerPromo"
         "DellInc.DellOptimizer"
         "DellInc.DellCommandUpdate"
@@ -1637,16 +1751,34 @@ if ($manufacturer -like "*Dell*") {
         "SupportAssist Recovery Assistant"
         "Dell SupportAssist OS Recovery Plugin for Dell Update"
         "Dell SupportAssistAgent"
-        "Dell Update - SupportAssist Update Plugin"
+        ##"Dell Update - SupportAssist Update Plugin"
         "Dell Core Services"
         "Dell Pair"
         "Dell Display Manager 2.0"
         "Dell Display Manager 2.1"
         "Dell Display Manager 2.2"
-        "Dell SupportAssist Remediation"
-        "Dell Update - SupportAssist Update Plugin"
         "DellInc.PartnerPromo"
+        "Dell Trusted Device"
     )
+
+        ##Stop Running Processes
+
+    $processnames = @(
+"DellEnterpriseClientFrameworkSubAgent.exe",
+"DellOptimizer.exe",
+"DellOptimizer.Systray.exe",
+"DellPair.exe",
+"DellPairService.exe",
+"DellSupportAssistRemedationService.exe",
+"DellSupportAssistRemediationServiceInstaller.exe",
+"DellUpdateSupportAssistPlugin.exe"
+    )
+
+    foreach ($process in $processnames) {
+        write-output "Stopping Process $process"
+        Get-Process -Name $process | Stop-Process -Force
+        write-output "Process $process Stopped"
+    }
 
 
 
@@ -1799,7 +1931,7 @@ foreach ($pattern in $uninstallPrograms) {
 
     ##Manual Removals
 
-    ##Dell Optimizer
+    ##Dell Optimizer Core
     $dellSA = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall, HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object { $_.DisplayName -like "Dell*Optimizer*Core" } | Select-Object -Property UninstallString
 
     ForEach ($sa in $dellSA) {
@@ -1812,6 +1944,21 @@ foreach ($pattern in $uninstallPrograms) {
             }
         }
     }
+
+        ##Dell Optimizer
+    $dellSA = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall, HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object { $_.DisplayName -like "Dell*Optimizer" } | Select-Object -Property UninstallString
+
+    ForEach ($sa in $dellSA) {
+        If ($sa.UninstallString) {
+            try {
+                cmd.exe /c $sa.UninstallString -silent
+            }
+            catch {
+                Write-Warning "Failed to uninstall Dell Optimizer"
+            }
+        }
+    }
+
 
 
     ##Dell Dell SupportAssist Remediation
@@ -1877,6 +2024,14 @@ foreach ($pattern in $uninstallPrograms) {
         Write-Warning "Failed to uninstall Dell Pair"
     }
 
+    ##Dell Update Assist Plugin
+    try {
+        start-process c:\windows\system32\cmd.exe '/c "C:\ProgramData\Package Cache\{0a5aa116-8736-4571-b49d-739020affb16}\DellUpdateSupportAssistPlugin.exe" /uninstall /quiet'
+    }
+    catch {
+        Write-Warning "Failed to uninstall Dell Update Assist Plugin"
+    }
+
 }
 
 
@@ -1905,7 +2060,7 @@ if ($manufacturer -like "Lenovo") {
             $displayName = $app.DisplayName
             write-output "Uninstalling: $displayName"
             Start-Process $uninstallString -ArgumentList "/VERYSILENT" -Wait
-            write-output "Uninstalled: $displayName" -ForegroundColor Green
+            write-output "Uninstalled: $displayName"
         }
     }
 
@@ -1958,6 +2113,7 @@ if ($manufacturer -like "Lenovo") {
         "TrackPoint Quick Menu"
         "E0469640.TrackPointQuickMenu"
         "Lenovo AI Now"
+        "Lenovo Subscription Marketplace"
     )
 
 
@@ -2054,6 +2210,13 @@ if ($manufacturer -like "Lenovo") {
         Start-Process -FilePath $path -ArgumentList $params -Wait
     }
 
+       # Uninstall Lenovo Smart Connect
+    $path = 'C:\Program Files\Lenovo\Ready For Assistant\uninstall.exe'
+    $params = "/S"
+    if (test-path -Path $path) {
+        Start-Process -FilePath $path -ArgumentList $params -Wait
+    }
+
     ##Uninstall Smart Appearance
     $path = 'C:\Program Files\Lenovo\Lenovo Smart Appearance Components\unins000.exe'
     $params = '/SILENT'
@@ -2079,7 +2242,7 @@ if ($manufacturer -like "Lenovo") {
             write-output "Failed to execute uninstall.ps1"
         }
 
-        write-output "All applications and associated Lenovo components have been uninstalled." -ForegroundColor Green
+        write-output "All applications and associated Lenovo components have been uninstalled."
     }
 
     $lenovonow = "c:\program files (x86)\lenovo\LenovoNow\x86"
@@ -2096,7 +2259,7 @@ if ($manufacturer -like "Lenovo") {
             write-output "Failed to execute uninstall.ps1"
         }
 
-        write-output "All applications and associated Lenovo components have been uninstalled." -ForegroundColor Green
+        write-output "All applications and associated Lenovo components have been uninstalled."
     }
 
 
@@ -2104,6 +2267,22 @@ if ($manufacturer -like "Lenovo") {
 
     if (Test-Path $filename) {
         Remove-Item -Path $filename -Force
+    }
+
+    ##Also delete this directory %programdata%\Lenovo\UserGuide\
+    $userguidepath = "C:\ProgramData\Lenovo\UserGuide"
+    if (Test-Path $userguidepath) {
+        Remove-Item -Path $userguidepath -Recurse -Force
+    }
+
+    $filenameDE1 = "C:\Users\All Users\Microsoft\Windows\Start Menu\Programs\Benutzerhandbuch.url"
+    if (Test-Path $filenameDE1) {
+        Remove-Item -Path $filenameDE1 -Force
+    }
+
+    $filenameDE2 = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Benutzerhandbuch.url"
+    if (Test-Path $filenameDE2) {
+        Remove-Item -Path $filenameDE2 -Force
     }
 
     ##Camera fix for Lenovo E14
@@ -2147,6 +2326,12 @@ if ($manufacturer -like "Lenovo") {
     else {
         write-output "X-Rite Color Assistant uninstaller not found."
     }
+
+    ##Stop Lenovo UDC Service and Disable it
+    write-output "Stopping and disabling Lenovo UDC Service"
+Stop-Service "UDCService"
+Set-Service "UDCService" -StartupType Disabled
+write-output "Lenovo UDC Service Disabled"
 
 }
 
@@ -2343,6 +2528,209 @@ foreach ($pattern in $uninstallPrograms) {
     write-output "Removed Samsung bloat"
 }
 
+if ($manufacturer -like "*Acer*") {
+    write-output "Acer detected"
+    #Remove Acer bloat
+
+
+    $processnames = @(
+        "ACCSvc.exe"
+        "QASvc.exe"
+        "ProShieldService.exe"
+    )
+
+    foreach ($process in $processnames) {
+        write-output "Stopping Process $process"
+        Get-Process -Name $process | Stop-Process -Force
+        write-output "Process $process Stopped"
+    }
+
+    ##Acer Specific
+    $UninstallPrograms = @(
+        "Acer Configuration Manager"
+        "Acer Jumpstart"
+        "Acer Product Registration"
+        "Acer ProShield Plus"
+        "Acer ProShield Plus Service"
+        "Acer Purified Voice Console"
+        "Acer Control Centre"
+        "Acer Quick Access"
+        "Acer Quick Access Service"
+        "Password Generator Tool"
+        "Evernote"
+        "Dropbox promotion"
+        "Acer User Experience Improvement Program Service"
+        "DriverSetupUtility"
+        "ControlCenter Service"
+        "McAfee LiveSafe"
+        "Quick Access Service"
+        "User Experience Improvement Program Service"
+        "McAfee.wps"
+        "McAfeeWPSSparsePackage"
+        "Evernote.Evernote"
+        "C27EB4BA.DropboxOEM"
+        "{2B51C83A-465D-4EA9-9CDC-1ED95ED09AC6}"
+        "InsydeSoftwareCorp.AcerProShieldPlus"
+        "Evernote.Evernote"
+        "DTSInc.DTSAudioProcessing"
+        "C27EB4BA.DropboxOEM"
+        "AppUp.IntelOptaneMemoryandStorageManagement"
+        "AcerIncorporated.QuickAccess"
+        "AcerIncorporated.AcerRegistration"
+        "AcerIncorporated.4703949AD09F"
+        "AcerIncorporated.AcerPurifiedVoiceConsoleR"
+        "55121DominqueTerry.PasswordGeneratorTool"
+        
+    )
+
+
+
+    $UninstallPrograms = $UninstallPrograms | Where-Object { $appstoignore -notcontains $_ }
+
+
+    $InstalledPrograms = $allstring | Where-Object { $UninstallPrograms -contains $_.Name }
+    foreach ($app in $UninstallPrograms) {
+
+        if (Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like $app -ErrorAction SilentlyContinue) {
+            Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like $app | Remove-AppxProvisionedPackage -Online
+            write-output "Removed provisioned package for $app."
+        }
+        else {
+            write-output "Provisioned package for $app not found."
+        }
+
+        if (Get-AppxPackage -allusers -Name $app -ErrorAction SilentlyContinue) {
+            Get-AppxPackage -allusers -Name $app | Remove-AppxPackage -AllUsers
+            write-output "Removed $app."
+        }
+        else {
+            write-output "$app not found."
+        }
+
+        UninstallAppFull -appName $app
+
+
+    }
+
+
+
+# Process each package pattern
+foreach ($pattern in $uninstallPrograms) {
+    $patternName = $pattern
+    $minVersion = $pattern.MinVersion
+    Write-Output "Checking for packages matching pattern: $patternName"
+
+    # Search for matching packages in the registry
+    $matchingPackages = @()
+    
+    # Check in 32-bit and 64-bit registry locations
+    $registryPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+    
+    foreach ($registryPath in $registryPaths) {
+        $packages = Get-ItemProperty -Path $registryPath -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.DisplayName -match $patternName }
+        
+        # Filter by minimum version if specified
+        if ($minVersion -and $packages) {
+            $packages = $packages | Where-Object { 
+                if ($_.DisplayVersion) {
+                    try {
+                        [version]$_.DisplayVersion -ge [version]$minVersion
+                    } catch {
+                        # If version comparison fails, include it anyway for safety
+                        $true
+                    }
+                } else {
+                    # If no version information, include it for safety
+                    $true
+                }
+            }
+        }
+        
+        $matchingPackages += $packages
+    }
+    
+    if ($matchingPackages.Count -eq 0) {
+        Write-Output "No packages found matching pattern: $patternName"
+        continue
+    }
+    
+    Write-Output "Found $($matchingPackages.Count) package(s) matching pattern: $patternName"
+    
+    # Process each matching package
+    foreach ($package in $matchingPackages) {
+        $displayName = $package.DisplayName
+        $uninstallString = $package.UninstallString
+        $quietUninstallString = $package.QuietUninstallString
+        $version = $package.DisplayVersion
+        
+        Write-Output "Attempting to uninstall: $displayName (Version: $version)"
+        
+        # Try to use the UninstallAppFull function first
+        Write-Output "Trying to uninstall via UninstallAppFull..."
+        UninstallAppFull -appName $displayName
+        
+        # If UninstallAppFull doesn't work, fall back to direct uninstallation
+        # Check if uninstall string exists and attempt uninstall
+        if ($quietUninstallString) {
+            Write-Output "Using quiet uninstall string: $quietUninstallString"
+            try {
+                if ($quietUninstallString -match "msiexec") {
+                    # For MSI-based uninstalls, add /quiet
+                    $uninstallCommand = $quietUninstallString + " /quiet"
+                    Start-Process "cmd.exe" -ArgumentList "/c $uninstallCommand" -Wait -NoNewWindow
+                } else {
+                    # For EXE-based uninstalls
+                    $uninstallParts = $quietUninstallString -split ' ', 2
+                    $uninstallExe = $uninstallParts[0].Trim('"')
+                    $uninstallArgs = if ($uninstallParts.Count -gt 1) { $uninstallParts[1] } else { "" }
+                    
+                    Start-Process -FilePath $uninstallExe -ArgumentList $uninstallArgs -Wait -NoNewWindow
+                }
+                Write-Output "Quiet uninstall completed for: $displayName"
+            } catch {
+                Write-Output "Error during quiet uninstall: $_"
+            }
+        } elseif ($uninstallString) {
+            Write-Output "Using standard uninstall string: $uninstallString"
+            try {
+                if ($uninstallString -match "msiexec") {
+                    # For MSI-based uninstalls, add /quiet
+                    if ($uninstallString -match "/I{") {
+                        # Change /I to /X for uninstall if needed
+                        $uninstallString = $uninstallString -replace "/I", "/X"
+                    }
+                    $uninstallCommand = $uninstallString + " /quiet"
+                    Start-Process "cmd.exe" -ArgumentList "/c $uninstallCommand" -Wait -NoNewWindow
+                } else {
+                    # For EXE-based uninstalls
+                    $uninstallParts = $uninstallString -split ' ', 2
+                    $uninstallExe = $uninstallParts[0].Trim('"')
+                    $uninstallArgs = if ($uninstallParts.Count -gt 1) { $uninstallParts[1] } else { "" }
+                    
+                    # Add silent parameters for common installers
+                    if ($uninstallString -match "uninstall.exe|uninst.exe|setup.exe|installer.exe") {
+                        $uninstallArgs += " /S /silent /quiet /uninstall"
+                    }
+                    
+                    Start-Process -FilePath $uninstallExe -ArgumentList $uninstallArgs -Wait -NoNewWindow
+                }
+                Write-Output "Standard uninstall completed for: $displayName"
+            } catch {
+                Write-Output "Error during standard uninstall: $_"
+            }
+        } else {
+            Write-Output "No uninstall string found for: $displayName"
+        }
+    }
+}
+
+    write-output "Removed Samsung bloat"
+}
+
 ##Remove bookmarks
 
 ##Enumerate all users
@@ -2357,6 +2745,92 @@ foreach ($user in $users) {
         }
     }
 }
+
+if ($manufacturer -like "*Asus*") {
+    write-output "Asus detected"
+    #Remove Asus bloat
+
+##ASUS OEMcode = B9ECED6F
+	
+    ##ASUS Specific 
+    ##You can decide which, if any, you wish to keep by including in customwhitelist
+	$UninstallPrograms = @(
+		"B9ECED6F.ASUSExpertWidget"											#defines F1-F4 hotkeys on Expertbook
+		"B9ECED6F.ASUSPCAssistant"											#MyAsus App on Expertbook, Vivobook
+		"AppUp.IntelGraphicsExperience"									#Intel Graphic mgmt utility	on Expertbook, Vivobook
+		"AppUp.IntelManagementandSecurityStatus"				#Intel Security mgmt utility on Expertbook
+		"DolbyLaboratories.DolbyAccess"									#Dolby sound utilities on Expertbook, Vivobook
+		"DolbyLaboratories.DolbyDigitalPlusDecoderOEM"	#Dolby sound utilities on Expertbook, Vivobook	
+		"DrivewintechTechnologyCo.DiracAudoManager"			#sound mgmt utility in Vivobook
+		"IntelligoTechnologyInc.541271065CCE8"					#suite of voice/microphone AI and Meeting utilities that Asus packages in Expertbook
+    )	
+
+    $UninstallPrograms = $UninstallPrograms | Where-Object { $appstoignore -notcontains $_ }
+
+    $InstalledPrograms = $allstring | Where-Object { $UninstallPrograms -contains $_.Name }
+    foreach ($app in $UninstallPrograms) {
+
+        if (Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like $app -ErrorAction SilentlyContinue) {
+            Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like $app | Remove-AppxProvisionedPackage -Online
+            write-output "Removed provisioned package for $app."
+        }
+        else {
+            write-output "Provisioned package for $app not found."
+        }
+
+        if (Get-AppxPackage -allusers -Name $app -ErrorAction SilentlyContinue) {
+            Get-AppxPackage -allusers -Name $app | Remove-AppxPackage -AllUsers
+            write-output "Removed $app."
+        }
+        else {
+            write-output "$app not found."
+        }
+
+        UninstallAppFull -appName $app
+
+    }
+
+	write-output "Removing Asus Theme and background "
+	##Remove Asus OEM theme and background image
+	$registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes"
+
+	# Check and remove ThemeName if it exists
+	if (Get-ItemProperty -Path $registryPath -Name "ThemeName" -ErrorAction SilentlyContinue) {
+		write-output "remove Asus Theme"
+		Remove-ItemProperty -Path $registryPath -Name "ThemeName"
+	}
+
+	# Check and remove DesktopBackground if it exists
+	if (Get-ItemProperty -Path $registryPath -Name "DesktopBackground" -ErrorAction SilentlyContinue) {
+		write-output "Remove Asus deskbkgrnd"
+		Remove-ItemProperty -Path $registryPath -Name "DesktopBackground"
+	}
+
+	#Clear the pre-defined ASUS OEM task bar definition file and registry key or it will override default user settings
+	$tbfile = "C:\Windows\OEM\TaskbarLayoutModification.xml"
+    if ((Test-Path -Path $tbfile -PathType Leaf) -and ((Get-Item $tbfile).LastWriteTimeUTC -lt $startUtc)) {
+		write-output "remove asus taskbar"
+		Remove-Item -Path $tbfile -Force 
+	}
+	$registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer"
+	$reg = Get-ItemProperty -Path $registryPath -ErrorAction SilentlyContinue
+	if (($reg -and $reg.PSObject.Properties.Name -contains "LayoutXMLPath") -and ($reg.LayoutXMLPath -ieq $tbfile)) {
+		write-output "remove Asus layoutxmlpath"
+		Remove-ItemProperty -Path $registryPath -Name "LayoutXMLPath"
+	}
+
+	$registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer"
+	$reg = Get-ItemProperty -Path $registryPath -ErrorAction SilentlyContinue
+	if (($reg -and $reg.PSObject.Properties.Name -contains "LayoutXMLPath") -and ($reg.LayoutXMLPath -ieq $tbfile)) {
+		write-output "remove Asus layoutxmlpath"
+		Remove-ItemProperty -Path $registryPath -Name "LayoutXMLPath" -ErrorAction SilentlyContinue
+	}
+
+} 
+#end ASUS specific
+
+
+
 
 
 ############################################################################################################
@@ -2423,11 +2897,11 @@ if ($mcafeeinstalled -eq "true") {
 
     write-output "Removing McAfee"
     # Automate Removal and kill services
-    start-process "C:\ProgramData\Debloat\mcnew\Mccleanup.exe" -ArgumentList "-p StopServices,MFSY,PEF,MXD,CSP,Sustainability,MOCP,MFP,APPSTATS,Auth,EMproxy,FWdiver,HW,MAS,MAT,MBK,MCPR,McProxy,McSvcHost,VUL,MHN,MNA,MOBK,MPFP,MPFPCU,MPS,SHRED,MPSCU,MQC,MQCCU,MSAD,MSHR,MSK,MSKCU,MWL,NMC,RedirSvc,VS,REMEDIATION,MSC,YAP,TRUEKEY,LAM,PCB,Symlink,SafeConnect,MGS,WMIRemover,RESIDUE,FWDRIVER,Redir,MSHR,WPS,MSSPlus -v -s"
+    start-process "C:\ProgramData\Debloat\mcnew\Mccleanup.exe" -ArgumentList "-p StopServices,MFSY,PEF,MXD,CSP,Sustainability,MOCP,MFP,APPSTATS,Auth,EMproxy,FWdiver,HW,MAS,MAT,MBK,MCPR,McProxy,McSvcHost,VUL,MHN,MNA,MOBK,MPFP,MPFPCU,MPS,SHRED,MPSCU,MQC,MQCCU,MSAD,MSHR,MSK,MSKCU,MWL,NMC,RedirSvc,VS,REMEDIATION,MSC,YAP,TRUEKEY,LAM,PCB,Symlink,SafeConnect,MGS,WMIRemover,RESIDUE -v -s"
     write-output "McAfee Removal Tool has been run"
 
-    $InstalledPrograms = $allstring | Where-Object { ($_.Name -like "*McAfee*") }
-    $InstalledPrograms | ForEach-Object {
+  $InstalledPrograms = $allstring | Where-Object { ($_.Name -like "*McAfee*") -and ($_.Name -notlike "*WebAdvisor*") }
+      $InstalledPrograms | ForEach-Object {
 
         write-output "Attempting to uninstall: [$($_.Name)]..."
         $uninstallcommand = $_.String
@@ -2475,6 +2949,12 @@ if ($mcafeeinstalled -eq "true") {
     get-appxprovisionedpackage -online | sort-object displayname | format-table displayname, packagename
     get-appxpackage -allusers | sort-object name | format-table name, packagefullname
     Get-AppxProvisionedPackage -Online | Where-Object DisplayName -eq "McAfeeWPSSparsePackage" | Remove-AppxProvisionedPackage -Online -AllUsers
+
+##Remove webadvisor
+
+    if (Test-Path "${env:ProgramFiles(x86)}\McAfee\SiteAdvisor\Uninstall.exe") { Start-Process -FilePath "${env:ProgramFiles(x86)}\McAfee\SiteAdvisor\Uninstall.exe" -ArgumentList "/s" -WorkingDirectory "${env:ProgramFiles(x86)}\McAfee\SiteAdvisor" -Wait -NoNewWindow }
+    Start-Sleep -Seconds 5
+    if (Test-Path "${env:ProgramFiles(x86)}\McAfee") { Remove-Item -Path "${env:ProgramFiles(x86)}\McAfee" -Recurse -Force }
 }
 
 
@@ -2641,225 +3121,182 @@ Stop-Transcript
 
 ##Adding random padding to stop it removing actual useful text
 ##More padding
-##And more padding
-
-
-
+##And more
+##M
 # SIG # Begin signature block
-# MIIoUAYJKoZIhvcNAQcCoIIoQTCCKD0CAQExDzANBglghkgBZQMEAgEFADB5Bgor
+# MIIgyAYJKoZIhvcNAQcCoIIguTCCILUCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAHaDdFaynSwAAx
-# mHcjOz9AsM6ESiSptNRWRglrezgfnKCCIU0wggWNMIIEdaADAgECAhAOmxiO+dAt
-# 5+/bUOIIQBhaMA0GCSqGSIb3DQEBDAUAMGUxCzAJBgNVBAYTAlVTMRUwEwYDVQQK
-# EwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5jb20xJDAiBgNV
-# BAMTG0RpZ2lDZXJ0IEFzc3VyZWQgSUQgUm9vdCBDQTAeFw0yMjA4MDEwMDAwMDBa
-# Fw0zMTExMDkyMzU5NTlaMGIxCzAJBgNVBAYTAlVTMRUwEwYDVQQKEwxEaWdpQ2Vy
-# dCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5jb20xITAfBgNVBAMTGERpZ2lD
-# ZXJ0IFRydXN0ZWQgUm9vdCBHNDCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoC
-# ggIBAL/mkHNo3rvkXUo8MCIwaTPswqclLskhPfKK2FnC4SmnPVirdprNrnsbhA3E
-# MB/zG6Q4FutWxpdtHauyefLKEdLkX9YFPFIPUh/GnhWlfr6fqVcWWVVyr2iTcMKy
-# unWZanMylNEQRBAu34LzB4TmdDttceItDBvuINXJIB1jKS3O7F5OyJP4IWGbNOsF
-# xl7sWxq868nPzaw0QF+xembud8hIqGZXV59UWI4MK7dPpzDZVu7Ke13jrclPXuU1
-# 5zHL2pNe3I6PgNq2kZhAkHnDeMe2scS1ahg4AxCN2NQ3pC4FfYj1gj4QkXCrVYJB
-# MtfbBHMqbpEBfCFM1LyuGwN1XXhm2ToxRJozQL8I11pJpMLmqaBn3aQnvKFPObUR
-# WBf3JFxGj2T3wWmIdph2PVldQnaHiZdpekjw4KISG2aadMreSx7nDmOu5tTvkpI6
-# nj3cAORFJYm2mkQZK37AlLTSYW3rM9nF30sEAMx9HJXDj/chsrIRt7t/8tWMcCxB
-# YKqxYxhElRp2Yn72gLD76GSmM9GJB+G9t+ZDpBi4pncB4Q+UDCEdslQpJYls5Q5S
-# UUd0viastkF13nqsX40/ybzTQRESW+UQUOsxxcpyFiIJ33xMdT9j7CFfxCBRa2+x
-# q4aLT8LWRV+dIPyhHsXAj6KxfgommfXkaS+YHS312amyHeUbAgMBAAGjggE6MIIB
-# NjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBTs1+OC0nFdZEzfLmc/57qYrhwP
-# TzAfBgNVHSMEGDAWgBRF66Kv9JLLgjEtUYunpyGd823IDzAOBgNVHQ8BAf8EBAMC
-# AYYweQYIKwYBBQUHAQEEbTBrMCQGCCsGAQUFBzABhhhodHRwOi8vb2NzcC5kaWdp
-# Y2VydC5jb20wQwYIKwYBBQUHMAKGN2h0dHA6Ly9jYWNlcnRzLmRpZ2ljZXJ0LmNv
-# bS9EaWdpQ2VydEFzc3VyZWRJRFJvb3RDQS5jcnQwRQYDVR0fBD4wPDA6oDigNoY0
-# aHR0cDovL2NybDMuZGlnaWNlcnQuY29tL0RpZ2lDZXJ0QXNzdXJlZElEUm9vdENB
-# LmNybDARBgNVHSAECjAIMAYGBFUdIAAwDQYJKoZIhvcNAQEMBQADggEBAHCgv0Nc
-# Vec4X6CjdBs9thbX979XB72arKGHLOyFXqkauyL4hxppVCLtpIh3bb0aFPQTSnov
-# Lbc47/T/gLn4offyct4kvFIDyE7QKt76LVbP+fT3rDB6mouyXtTP0UNEm0Mh65Zy
-# oUi0mcudT6cGAxN3J0TU53/oWajwvy8LpunyNDzs9wPHh6jSTEAZNUZqaVSwuKFW
-# juyk1T3osdz9HNj0d1pcVIxv76FQPfx2CWiEn2/K2yCNNWAcAgPLILCsWKAOQGPF
-# mCLBsln1VWvPJ6tsds5vIy30fnFqI2si/xK4VC0nftg62fC2h5b9W9FcrBjDTZ9z
-# twGpn1eqXijiuZQwggawMIIEmKADAgECAhAIrUCyYNKcTJ9ezam9k67ZMA0GCSqG
-# SIb3DQEBDAUAMGIxCzAJBgNVBAYTAlVTMRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMx
-# GTAXBgNVBAsTEHd3dy5kaWdpY2VydC5jb20xITAfBgNVBAMTGERpZ2lDZXJ0IFRy
-# dXN0ZWQgUm9vdCBHNDAeFw0yMTA0MjkwMDAwMDBaFw0zNjA0MjgyMzU5NTlaMGkx
-# CzAJBgNVBAYTAlVTMRcwFQYDVQQKEw5EaWdpQ2VydCwgSW5jLjFBMD8GA1UEAxM4
-# RGlnaUNlcnQgVHJ1c3RlZCBHNCBDb2RlIFNpZ25pbmcgUlNBNDA5NiBTSEEzODQg
-# MjAyMSBDQTEwggIiMA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQDVtC9C0Cit
-# eLdd1TlZG7GIQvUzjOs9gZdwxbvEhSYwn6SOaNhc9es0JAfhS0/TeEP0F9ce2vnS
-# 1WcaUk8OoVf8iJnBkcyBAz5NcCRks43iCH00fUyAVxJrQ5qZ8sU7H/Lvy0daE6ZM
-# swEgJfMQ04uy+wjwiuCdCcBlp/qYgEk1hz1RGeiQIXhFLqGfLOEYwhrMxe6TSXBC
-# Mo/7xuoc82VokaJNTIIRSFJo3hC9FFdd6BgTZcV/sk+FLEikVoQ11vkunKoAFdE3
-# /hoGlMJ8yOobMubKwvSnowMOdKWvObarYBLj6Na59zHh3K3kGKDYwSNHR7OhD26j
-# q22YBoMbt2pnLdK9RBqSEIGPsDsJ18ebMlrC/2pgVItJwZPt4bRc4G/rJvmM1bL5
-# OBDm6s6R9b7T+2+TYTRcvJNFKIM2KmYoX7BzzosmJQayg9Rc9hUZTO1i4F4z8ujo
-# 7AqnsAMrkbI2eb73rQgedaZlzLvjSFDzd5Ea/ttQokbIYViY9XwCFjyDKK05huzU
-# tw1T0PhH5nUwjewwk3YUpltLXXRhTT8SkXbev1jLchApQfDVxW0mdmgRQRNYmtwm
-# KwH0iU1Z23jPgUo+QEdfyYFQc4UQIyFZYIpkVMHMIRroOBl8ZhzNeDhFMJlP/2NP
-# TLuqDQhTQXxYPUez+rbsjDIJAsxsPAxWEQIDAQABo4IBWTCCAVUwEgYDVR0TAQH/
-# BAgwBgEB/wIBADAdBgNVHQ4EFgQUaDfg67Y7+F8Rhvv+YXsIiGX0TkIwHwYDVR0j
-# BBgwFoAU7NfjgtJxXWRM3y5nP+e6mK4cD08wDgYDVR0PAQH/BAQDAgGGMBMGA1Ud
-# JQQMMAoGCCsGAQUFBwMDMHcGCCsGAQUFBwEBBGswaTAkBggrBgEFBQcwAYYYaHR0
-# cDovL29jc3AuZGlnaWNlcnQuY29tMEEGCCsGAQUFBzAChjVodHRwOi8vY2FjZXJ0
-# cy5kaWdpY2VydC5jb20vRGlnaUNlcnRUcnVzdGVkUm9vdEc0LmNydDBDBgNVHR8E
-# PDA6MDigNqA0hjJodHRwOi8vY3JsMy5kaWdpY2VydC5jb20vRGlnaUNlcnRUcnVz
-# dGVkUm9vdEc0LmNybDAcBgNVHSAEFTATMAcGBWeBDAEDMAgGBmeBDAEEATANBgkq
-# hkiG9w0BAQwFAAOCAgEAOiNEPY0Idu6PvDqZ01bgAhql+Eg08yy25nRm95RysQDK
-# r2wwJxMSnpBEn0v9nqN8JtU3vDpdSG2V1T9J9Ce7FoFFUP2cvbaF4HZ+N3HLIvda
-# qpDP9ZNq4+sg0dVQeYiaiorBtr2hSBh+3NiAGhEZGM1hmYFW9snjdufE5BtfQ/g+
-# lP92OT2e1JnPSt0o618moZVYSNUa/tcnP/2Q0XaG3RywYFzzDaju4ImhvTnhOE7a
-# brs2nfvlIVNaw8rpavGiPttDuDPITzgUkpn13c5UbdldAhQfQDN8A+KVssIhdXNS
-# y0bYxDQcoqVLjc1vdjcshT8azibpGL6QB7BDf5WIIIJw8MzK7/0pNVwfiThV9zeK
-# iwmhywvpMRr/LhlcOXHhvpynCgbWJme3kuZOX956rEnPLqR0kq3bPKSchh/jwVYb
-# KyP/j7XqiHtwa+aguv06P0WmxOgWkVKLQcBIhEuWTatEQOON8BUozu3xGFYHKi8Q
-# xAwIZDwzj64ojDzLj4gLDb879M4ee47vtevLt/B3E+bnKD+sEq6lLyJsQfmCXBVm
-# zGwOysWGw/YmMwwHS6DTBwJqakAwSEs0qFEgu60bhQjiWQ1tygVQK+pKHJ6l/aCn
-# HwZ05/LWUpD9r4VIIflXO7ScA+2GRfS0YW6/aOImYIbqyK+p/pQd52MbOoZWeE4w
-# gga0MIIEnKADAgECAhANx6xXBf8hmS5AQyIMOkmGMA0GCSqGSIb3DQEBCwUAMGIx
-# CzAJBgNVBAYTAlVTMRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3
-# dy5kaWdpY2VydC5jb20xITAfBgNVBAMTGERpZ2lDZXJ0IFRydXN0ZWQgUm9vdCBH
-# NDAeFw0yNTA1MDcwMDAwMDBaFw0zODAxMTQyMzU5NTlaMGkxCzAJBgNVBAYTAlVT
-# MRcwFQYDVQQKEw5EaWdpQ2VydCwgSW5jLjFBMD8GA1UEAxM4RGlnaUNlcnQgVHJ1
-# c3RlZCBHNCBUaW1lU3RhbXBpbmcgUlNBNDA5NiBTSEEyNTYgMjAyNSBDQTEwggIi
-# MA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQC0eDHTCphBcr48RsAcrHXbo0Zo
-# dLRRF51NrY0NlLWZloMsVO1DahGPNRcybEKq+RuwOnPhof6pvF4uGjwjqNjfEvUi
-# 6wuim5bap+0lgloM2zX4kftn5B1IpYzTqpyFQ/4Bt0mAxAHeHYNnQxqXmRinvuNg
-# xVBdJkf77S2uPoCj7GH8BLuxBG5AvftBdsOECS1UkxBvMgEdgkFiDNYiOTx4OtiF
-# cMSkqTtF2hfQz3zQSku2Ws3IfDReb6e3mmdglTcaarps0wjUjsZvkgFkriK9tUKJ
-# m/s80FiocSk1VYLZlDwFt+cVFBURJg6zMUjZa/zbCclF83bRVFLeGkuAhHiGPMvS
-# GmhgaTzVyhYn4p0+8y9oHRaQT/aofEnS5xLrfxnGpTXiUOeSLsJygoLPp66bkDX1
-# ZlAeSpQl92QOMeRxykvq6gbylsXQskBBBnGy3tW/AMOMCZIVNSaz7BX8VtYGqLt9
-# MmeOreGPRdtBx3yGOP+rx3rKWDEJlIqLXvJWnY0v5ydPpOjL6s36czwzsucuoKs7
-# Yk/ehb//Wx+5kMqIMRvUBDx6z1ev+7psNOdgJMoiwOrUG2ZdSoQbU2rMkpLiQ6bG
-# RinZbI4OLu9BMIFm1UUl9VnePs6BaaeEWvjJSjNm2qA+sdFUeEY0qVjPKOWug/G6
-# X5uAiynM7Bu2ayBjUwIDAQABo4IBXTCCAVkwEgYDVR0TAQH/BAgwBgEB/wIBADAd
-# BgNVHQ4EFgQU729TSunkBnx6yuKQVvYv1Ensy04wHwYDVR0jBBgwFoAU7NfjgtJx
-# XWRM3y5nP+e6mK4cD08wDgYDVR0PAQH/BAQDAgGGMBMGA1UdJQQMMAoGCCsGAQUF
-# BwMIMHcGCCsGAQUFBwEBBGswaTAkBggrBgEFBQcwAYYYaHR0cDovL29jc3AuZGln
-# aWNlcnQuY29tMEEGCCsGAQUFBzAChjVodHRwOi8vY2FjZXJ0cy5kaWdpY2VydC5j
-# b20vRGlnaUNlcnRUcnVzdGVkUm9vdEc0LmNydDBDBgNVHR8EPDA6MDigNqA0hjJo
-# dHRwOi8vY3JsMy5kaWdpY2VydC5jb20vRGlnaUNlcnRUcnVzdGVkUm9vdEc0LmNy
-# bDAgBgNVHSAEGTAXMAgGBmeBDAEEAjALBglghkgBhv1sBwEwDQYJKoZIhvcNAQEL
-# BQADggIBABfO+xaAHP4HPRF2cTC9vgvItTSmf83Qh8WIGjB/T8ObXAZz8OjuhUxj
-# aaFdleMM0lBryPTQM2qEJPe36zwbSI/mS83afsl3YTj+IQhQE7jU/kXjjytJgnn0
-# hvrV6hqWGd3rLAUt6vJy9lMDPjTLxLgXf9r5nWMQwr8Myb9rEVKChHyfpzee5kH0
-# F8HABBgr0UdqirZ7bowe9Vj2AIMD8liyrukZ2iA/wdG2th9y1IsA0QF8dTXqvcnT
-# mpfeQh35k5zOCPmSNq1UH410ANVko43+Cdmu4y81hjajV/gxdEkMx1NKU4uHQcKf
-# ZxAvBAKqMVuqte69M9J6A47OvgRaPs+2ykgcGV00TYr2Lr3ty9qIijanrUR3anzE
-# wlvzZiiyfTPjLbnFRsjsYg39OlV8cipDoq7+qNNjqFzeGxcytL5TTLL4ZaoBdqbh
-# OhZ3ZRDUphPvSRmMThi0vw9vODRzW6AxnJll38F0cuJG7uEBYTptMSbhdhGQDpOX
-# gpIUsWTjd6xpR6oaQf/DJbg3s6KCLPAlZ66RzIg9sC+NJpud/v4+7RWsWCiKi9EO
-# LLHfMR2ZyJ/+xhCx9yHbxtl5TPau1j/1MIDpMPx0LckTetiSuEtQvLsNz3Qbp7wG
-# WqbIiOWCnb5WqxL3/BAPvIXKUjPSxyZsq8WhbaM2tszWkPZPubdcMIIG7TCCBNWg
-# AwIBAgIQCoDvGEuN8QWC0cR2p5V0aDANBgkqhkiG9w0BAQsFADBpMQswCQYDVQQG
-# EwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xQTA/BgNVBAMTOERpZ2lDZXJ0
-# IFRydXN0ZWQgRzQgVGltZVN0YW1waW5nIFJTQTQwOTYgU0hBMjU2IDIwMjUgQ0Ex
-# MB4XDTI1MDYwNDAwMDAwMFoXDTM2MDkwMzIzNTk1OVowYzELMAkGA1UEBhMCVVMx
-# FzAVBgNVBAoTDkRpZ2lDZXJ0LCBJbmMuMTswOQYDVQQDEzJEaWdpQ2VydCBTSEEy
-# NTYgUlNBNDA5NiBUaW1lc3RhbXAgUmVzcG9uZGVyIDIwMjUgMTCCAiIwDQYJKoZI
-# hvcNAQEBBQADggIPADCCAgoCggIBANBGrC0Sxp7Q6q5gVrMrV7pvUf+GcAoB38o3
-# zBlCMGMyqJnfFNZx+wvA69HFTBdwbHwBSOeLpvPnZ8ZN+vo8dE2/pPvOx/Vj8Tch
-# TySA2R4QKpVD7dvNZh6wW2R6kSu9RJt/4QhguSssp3qome7MrxVyfQO9sMx6ZAWj
-# FDYOzDi8SOhPUWlLnh00Cll8pjrUcCV3K3E0zz09ldQ//nBZZREr4h/GI6Dxb2Uo
-# yrN0ijtUDVHRXdmncOOMA3CoB/iUSROUINDT98oksouTMYFOnHoRh6+86Ltc5zjP
-# KHW5KqCvpSduSwhwUmotuQhcg9tw2YD3w6ySSSu+3qU8DD+nigNJFmt6LAHvH3KS
-# uNLoZLc1Hf2JNMVL4Q1OpbybpMe46YceNA0LfNsnqcnpJeItK/DhKbPxTTuGoX7w
-# JNdoRORVbPR1VVnDuSeHVZlc4seAO+6d2sC26/PQPdP51ho1zBp+xUIZkpSFA8vW
-# doUoHLWnqWU3dCCyFG1roSrgHjSHlq8xymLnjCbSLZ49kPmk8iyyizNDIXj//cOg
-# rY7rlRyTlaCCfw7aSUROwnu7zER6EaJ+AliL7ojTdS5PWPsWeupWs7NpChUk555K
-# 096V1hE0yZIXe+giAwW00aHzrDchIc2bQhpp0IoKRR7YufAkprxMiXAJQ1XCmnCf
-# gPf8+3mnAgMBAAGjggGVMIIBkTAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTkO/zy
-# Me39/dfzkXFjGVBDz2GM6DAfBgNVHSMEGDAWgBTvb1NK6eQGfHrK4pBW9i/USezL
-# TjAOBgNVHQ8BAf8EBAMCB4AwFgYDVR0lAQH/BAwwCgYIKwYBBQUHAwgwgZUGCCsG
-# AQUFBwEBBIGIMIGFMCQGCCsGAQUFBzABhhhodHRwOi8vb2NzcC5kaWdpY2VydC5j
-# b20wXQYIKwYBBQUHMAKGUWh0dHA6Ly9jYWNlcnRzLmRpZ2ljZXJ0LmNvbS9EaWdp
-# Q2VydFRydXN0ZWRHNFRpbWVTdGFtcGluZ1JTQTQwOTZTSEEyNTYyMDI1Q0ExLmNy
-# dDBfBgNVHR8EWDBWMFSgUqBQhk5odHRwOi8vY3JsMy5kaWdpY2VydC5jb20vRGln
-# aUNlcnRUcnVzdGVkRzRUaW1lU3RhbXBpbmdSU0E0MDk2U0hBMjU2MjAyNUNBMS5j
-# cmwwIAYDVR0gBBkwFzAIBgZngQwBBAIwCwYJYIZIAYb9bAcBMA0GCSqGSIb3DQEB
-# CwUAA4ICAQBlKq3xHCcEua5gQezRCESeY0ByIfjk9iJP2zWLpQq1b4URGnwWBdEZ
-# D9gBq9fNaNmFj6Eh8/YmRDfxT7C0k8FUFqNh+tshgb4O6Lgjg8K8elC4+oWCqnU/
-# ML9lFfim8/9yJmZSe2F8AQ/UdKFOtj7YMTmqPO9mzskgiC3QYIUP2S3HQvHG1FDu
-# +WUqW4daIqToXFE/JQ/EABgfZXLWU0ziTN6R3ygQBHMUBaB5bdrPbF6MRYs03h4o
-# bEMnxYOX8VBRKe1uNnzQVTeLni2nHkX/QqvXnNb+YkDFkxUGtMTaiLR9wjxUxu2h
-# ECZpqyU1d0IbX6Wq8/gVutDojBIFeRlqAcuEVT0cKsb+zJNEsuEB7O7/cuvTQasn
-# M9AWcIQfVjnzrvwiCZ85EE8LUkqRhoS3Y50OHgaY7T/lwd6UArb+BOVAkg2oOvol
-# /DJgddJ35XTxfUlQ+8Hggt8l2Yv7roancJIFcbojBcxlRcGG0LIhp6GvReQGgMgY
-# xQbV1S3CrWqZzBt1R9xJgKf47CdxVRd/ndUlQ05oxYy2zRWVFjF7mcr4C34Mj3oc
-# CVccAvlKV9jEnstrniLvUxxVZE/rptb7IRE2lskKPIJgbaP5t2nGj/ULLi49xTcB
-# ZU8atufk+EMF/cWuiC7POGT75qaL6vdCvHlshtjdNXOCIUjsarfNZzCCB1swggVD
-# oAMCAQICEAixn82z2vOwMVVYCAEvAOkwDQYJKoZIhvcNAQELBQAwaTELMAkGA1UE
-# BhMCVVMxFzAVBgNVBAoTDkRpZ2lDZXJ0LCBJbmMuMUEwPwYDVQQDEzhEaWdpQ2Vy
-# dCBUcnVzdGVkIEc0IENvZGUgU2lnbmluZyBSU0E0MDk2IFNIQTM4NCAyMDIxIENB
-# MTAeFw0yMzExMTUwMDAwMDBaFw0yNjExMTcyMzU5NTlaMGMxCzAJBgNVBAYTAkdC
-# MRQwEgYDVQQHEwtXaGl0bGV5IEJheTEeMBwGA1UEChMVQU5EUkVXU1RBWUxPUi5D
-# T00gTFREMR4wHAYDVQQDExVBTkRSRVdTVEFZTE9SLkNPTSBMVEQwggIiMA0GCSqG
-# SIb3DQEBAQUAA4ICDwAwggIKAoICAQDDpGJC6czR+GNYFFxe/fbhdAq8Fvy5nuu+
-# vgvWmTiWM6at/wyGvNaFr/W+G9FsC6SVbtHzpAJsSOqHLuLn+td4wzFtBn1eHUaH
-# bra8n7g7oreK53byQOgyLNGBucTZSk5GPACLwT9yMBM1A9X+eyeRogKaxxnqHOFL
-# bcxLhgN8kqpbBhINIAnoVic51JId8jPF25LAtC7gZp2P3WSf/JLQsAnd/IH2RDvV
-# Aw0pInuFU2N0+1RW04mh9G8PgL33EFctgksJMH55H2GoEhZCmq/jGMLu4KlV8a4d
-# 1fxo72pej3TNAOxHE6ps6wkbb5FiEem6c/twCB+ha+sk7ht14iyC+rCv4hf/XeFN
-# j4h9byf8X3YRo9K0N/zQUbFAQt5dcONS+avVF9TodZU9TrieoVf7mp5OiWN46Zvj
-# n2e2Akxdh5M+cuofU+7GNC04uvFZrcWvxIBLRuiVTVbKj+1sBJEEcbv99KrY8qF/
-# J80rhe05rEYJmdUgfiEnJXo7qkzXYXMnA4Yt/yCEoFSTUUvxemflUBn934ejm3UC
-# 1cKE9CZyY2w/D8yddjqCoFYk0IZ3WmW5H6YlYnydbs1ia01ucBKx/qr7rR1beP7B
-# GQFUuDzXznCV0dLNPy+SR5I7TOGhpetnwB4x4/SbApbrI+O3E+o0TiKkCOHo89bJ
-# TqHJTnrQjQIDAQABo4ICAzCCAf8wHwYDVR0jBBgwFoAUaDfg67Y7+F8Rhvv+YXsI
-# iGX0TkIwHQYDVR0OBBYEFNB3ThXz8WvWHm+TuSfVBIiZKyvfMD4GA1UdIAQ3MDUw
-# MwYGZ4EMAQQBMCkwJwYIKwYBBQUHAgEWG2h0dHA6Ly93d3cuZGlnaWNlcnQuY29t
-# L0NQUzAOBgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwMwgbUGA1Ud
-# HwSBrTCBqjBToFGgT4ZNaHR0cDovL2NybDMuZGlnaWNlcnQuY29tL0RpZ2lDZXJ0
-# VHJ1c3RlZEc0Q29kZVNpZ25pbmdSU0E0MDk2U0hBMzg0MjAyMUNBMS5jcmwwU6BR
-# oE+GTWh0dHA6Ly9jcmw0LmRpZ2ljZXJ0LmNvbS9EaWdpQ2VydFRydXN0ZWRHNENv
-# ZGVTaWduaW5nUlNBNDA5NlNIQTM4NDIwMjFDQTEuY3JsMIGUBggrBgEFBQcBAQSB
-# hzCBhDAkBggrBgEFBQcwAYYYaHR0cDovL29jc3AuZGlnaWNlcnQuY29tMFwGCCsG
-# AQUFBzAChlBodHRwOi8vY2FjZXJ0cy5kaWdpY2VydC5jb20vRGlnaUNlcnRUcnVz
-# dGVkRzRDb2RlU2lnbmluZ1JTQTQwOTZTSEEzODQyMDIxQ0ExLmNydDAJBgNVHRME
-# AjAAMA0GCSqGSIb3DQEBCwUAA4ICAQBJEYdj8DIsq2r6+umcMOj45duCsw3BmDEs
-# VCjhFOG8pHDioL0ulds3mSLNA/6KnLd4QSkxhEkkFkgPyZK9RDAtOKiRzv08K/7A
-# QwgwTLSfVwLTu+SfqKg3HDPoPD6Po44amCcyr24rFVL3bD6hZZeeb0s0bxxgAOoY
-# 8g8mpBi0TnDWkhWRnYDitgDIUPBFC6xPEYq4tw9UTrqhplFiqnDvWqjxwX+cFMIm
-# vIPfNLE16rjuYOE1pGakr8LdQRzJruvTEepaEQCtex7xXEonCuj5tM4ndSkts+J7
-# RgeAn3IPPGhS6IN3Ij9rXzItsU56jdSvmJlPPeD5dZQqdcRb0+qa5tdAbOgVYil3
-# w31RcV0wdJh6AzahovwfPq8X9s+7uX6FzwswWE/kN3MbaKb2bZNvTKU2PPBhw1Sb
-# BTAY1+8zOmgjSrEygto2/dhfo5ZHPHJQkEJ5d1OI6sG4+Lq9SQT+UMUKa1ocHXtP
-# jInw1adLx2bFWdKZ2DAikhuW1K98DlOxD99tQ8L7xLE4wsv1w4L8vIqVOsNxo3EE
-# BZoKfwV/9CQh1/tOECdCZEfU0xWUdQfs4dwnCtWRLU7b7mX40N74l8JcLTS8uN72
-# 3tSeVjU7NB4yV7H3W4WOZBOUYcn2sRQa9tSmMfm/nr2MqJSEtMEejXsOhai4HHOB
-# nveMmmFU6jGCBlkwggZVAgEBMH0waTELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDkRp
-# Z2lDZXJ0LCBJbmMuMUEwPwYDVQQDEzhEaWdpQ2VydCBUcnVzdGVkIEc0IENvZGUg
-# U2lnbmluZyBSU0E0MDk2IFNIQTM4NCAyMDIxIENBMQIQCLGfzbPa87AxVVgIAS8A
-# 6TANBglghkgBZQMEAgEFAKCBhDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkG
-# CSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEE
-# AYI3AgEVMC8GCSqGSIb3DQEJBDEiBCAc0wr/fjdRU9DUip1QapSVQQYxRl0LgpKU
-# ekv9RDrL+DANBgkqhkiG9w0BAQEFAASCAgBngJghVgufCKPWLy0Sb5YqJAMmBXts
-# jbIWQ+94iSnRWr6itI7Y+TZp/VWdJALkcoG1d3hzUaaSRG/MJXYA5Ut4ERe+wRWl
-# SV6+1LOhX5AnTAho0WLuwBcjqA7oJm56/b6D1fZNsdoj4yyDN/7B4OU8Hs88KGjz
-# w6gaAvgHamgXdUnwsA3EgDmxSs7pVxDahrm9arkTHTg7CJSep7OA+dtVLR5YwXnF
-# ogSWyLBRbptzLpDuSmyJZqxIYTgLjiZYQ9m6d9TNuCwTYqq79w5mS95b10hAudZC
-# 1NFZ6mPMq6Yr5nt/svh3bz7ZsehDwpEdlqWjvaucxi8Eg7CuZSxzC/sdyg8ILCa2
-# Lqk4QaxlkQFqFK4o1+Lb+D54ffwQOaGep0XrXrbpU0OvbpGHByUvVAiDlfSgHzVR
-# PoPMLcqTtkYOQeD4DE7GISdIyo/QLBdMfdUfHuCTpcsg9V4kAj/JJUE3PBQExiDt
-# LYMc+us++CnVpx729C0hGG6xletopCcdSKEcYmwUYpjL0o74LVog7tRtAoJixHEI
-# zlTb8ibPtzWudUvze1fkLVWiLnj71VahJgTd1qP0vBC8F1aE4yzpQsFfoNpYYeFL
-# h3gahasa1IWeFwo6ZzqPmFSXIq4v7oEXT+5GiPmBeH0oUlH6X/+DjyLFSW6cBaME
-# 4PQ+3A+pTc3OOaGCAyYwggMiBgkqhkiG9w0BCQYxggMTMIIDDwIBATB9MGkxCzAJ
-# BgNVBAYTAlVTMRcwFQYDVQQKEw5EaWdpQ2VydCwgSW5jLjFBMD8GA1UEAxM4RGln
-# aUNlcnQgVHJ1c3RlZCBHNCBUaW1lU3RhbXBpbmcgUlNBNDA5NiBTSEEyNTYgMjAy
-# NSBDQTECEAqA7xhLjfEFgtHEdqeVdGgwDQYJYIZIAWUDBAIBBQCgaTAYBgkqhkiG
-# 9w0BCQMxCwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNTExMDYyMjE5MDha
-# MC8GCSqGSIb3DQEJBDEiBCCx35nbM/zwBLs0CtZJGto8gqRIyB1LVs9ugpCB+5qh
-# gzANBgkqhkiG9w0BAQEFAASCAgDBL9nY6vMUTBkLHJ5un7nBoIxIypAVo5rKrDo9
-# bba9GAsdENhqauW7sobCM3N0YPbwMZoK2em1ZVg7Kkd3W7r397kWaLfhzmsUv3vT
-# yDYw3SMXL8ZcPBK38Ze42hO42uU0pOnxWiyL28Zfo1KyUyuYrJt2afJNmzTH4qUy
-# 1pldYfY3A8Ga71OWpLeXPH05/fcF6EAo1fLN1Czq2XL7Ktf3ucs2XrgHGk/ed6Vd
-# SCSQvtKDMYfvoISnsBI2mPqQoXuDIcTnTUbGBI1FnEm9elJVYIUxNtpoj1recQS+
-# Q5z/W3Z9hkXJq0n3yYNVxutWcmor6fphrm6g9LJmT7qrO96T+LM/svcmpvJF+cml
-# 4xggr+oq6LMD1JYV3iHJ4UPbjDGNuvpEZ4xcoBxv9HWPegSH3LhzGVOmwzXr+IAE
-# 6utPy3MZtClaMh8gZ18BsyJN31v+3hJfjN5LLj3pSOa1pe4JnjTZ/r/PkPdBVMqg
-# 78whvwx5rnnyo1+LuuymCh9wneVNaUVDCDM9uXV/Tt52mUMXX+cscnGgIvn+o8B+
-# 0QeT12SK/J5l0udmEFt4HfAIP/+n5R2HsUmJYQJTtwwWOKLVG4MkrqPxS1L3c1/d
-# fiIG40mxeCFyehst1VJe59PHorl1WfIeeaGqpnBjGw3f594RVA49CQKzvVrMpMhy
-# XKo84w==
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDut9P0L5tf+C/E
+# loZeY5/Ikvm+fHvpoL0YfLLCk8E+8KCCGXgwggZkMIIETKADAgECAhBECg5iwn4l
+# 3+Fke2RtudNrMA0GCSqGSIb3DQEBCwUAMFYxCzAJBgNVBAYTAlBMMSEwHwYDVQQK
+# ExhBc3NlY28gRGF0YSBTeXN0ZW1zIFMuQS4xJDAiBgNVBAMTG0NlcnR1bSBDb2Rl
+# IFNpZ25pbmcgMjAyMSBDQTAeFw0yNjA1MjkxMTU4MDJaFw0yNzA1MjkxMTU4MDFa
+# MIGJMQswCQYDVQQGEwJHQjEWMBQGA1UECAwNVHluZSBhbmQgV2VhcjEUMBIGA1UE
+# BwwLV2hpdGxleSBCYXkxHjAcBgNVBAoMFU9wZW4gU291cmNlIERldmVsb3BlcjEs
+# MCoGA1UEAwwjT3BlbiBTb3VyY2UgRGV2ZWxvcGVyIEFuZHJldyBUYXlsb3IwggGi
+# MA0GCSqGSIb3DQEBAQUAA4IBjwAwggGKAoIBgQCl1mmYE8CKN3HubI0d/2TAmYJa
+# egJhIyhxBOeQ1iptAaYDAgfMHPljtdE8L2TvgKaLGwldOIGkZShtqN2yQHA1dl+Y
+# ZJwD053ZgAgkAJe5M2FYCAiqDILAXxSLoH0aivEqE2DAKbuiW5JrfKNO/DZze/gF
+# T5uXzmFbUB0ILrqYPa9JZ0oGmakXhojTLk4yZjLG2iPU0LFnTFH7taq4HBorw5Qg
+# F58UsjFLrNJBnW812dTWJILpgkI6zvEjcjWgknxNx3xKTCyPIItOfaQ7RjDUfrKX
+# EeeVGeQj9SektnLHw4aEtj7Undy+wECthFEMkFi1jlkF8r2OXT8czyfFOkXyvjYg
+# ws7rCFG9jIqCwL5arkT8rjfDOYkE8/thJsSnhHezpQotIt4fvLbUurk/HevW+3Dk
+# 7MFQZfM+spAnfWr7YwUnhaV/coMilnv2nIstE6QSN+ffZqtMBEMDIsiuXURbxm4A
+# XX3Mb9m8/+Fd8dKLMYTibtopqMnyYODYylOMMhECAwEAAaOCAXgwggF0MAwGA1Ud
+# EwEB/wQCMAAwPQYDVR0fBDYwNDAyoDCgLoYsaHR0cDovL2Njc2NhMjAyMS5jcmwu
+# Y2VydHVtLnBsL2Njc2NhMjAyMS5jcmwwcwYIKwYBBQUHAQEEZzBlMCwGCCsGAQUF
+# BzABhiBodHRwOi8vY2NzY2EyMDIxLm9jc3AtY2VydHVtLmNvbTA1BggrBgEFBQcw
+# AoYpaHR0cDovL3JlcG9zaXRvcnkuY2VydHVtLnBsL2Njc2NhMjAyMS5jZXIwHwYD
+# VR0jBBgwFoAU3XRdTADbe5+gdMqxbvc8wDLAcM0wHQYDVR0OBBYEFF8s0ZWgM+gt
+# 10XnMoJdmgxXUT6IMEsGA1UdIAREMEIwCAYGZ4EMAQQBMDYGCyqEaAGG9ncCBQEE
+# MCcwJQYIKwYBBQUHAgEWGWh0dHBzOi8vd3d3LmNlcnR1bS5wbC9DUFMwEwYDVR0l
+# BAwwCgYIKwYBBQUHAwMwDgYDVR0PAQH/BAQDAgeAMA0GCSqGSIb3DQEBCwUAA4IC
+# AQBokuBx6nFmUORUb4WuCn0JFrqf5HJ4PkjE8sQjEfilDQXqmSZCa4R46URlMXBD
+# UOs+PMivxf4yxGw3XAx7dQDKvKR8MIICNBgyHodDv327R6crKMzU+CcdA6LSvT5X
+# 0I/noGcrvyQtO4afME4Ad4SF7XpXLd4Uc46KG6G7DMEhDQ89RQ5HTjk3KZcvK7m+
+# BPLWD+q+1w8vFAc51U0m6Zqbb0YHJJ24KAp4NNentx0c3i4ZR9bIYZOiAJTnsq2M
+# eh4IBC4HxdC5JfT0JjeOSpctsuS0t48EtuCN4LgcBXyUM5BKw2EMgEm6K2PB8KJX
+# hCPXQHTx2vVsBOoI6wA2qcYv75ud2AYALap7VKOWT+9vr6lHKSL61RkbJZjsOIHs
+# 2QDHZosVZaGiinlb0IKFe+jQn9m558QzSjMggRA+ZIz/7JgS12FeZN2Ie77h0dK1
+# cGRzVolv0nB4ueOKkg6f15CnVMs+XlsaoSV8PavMl5IiVFZ0/KiunGqNVQdDHXZ7
+# DbOzHOshOn5ewF+oz1J9FqEAlGcKDiCa9gszJN4lRlv9TBg5xZkaYTkfdeY7atfF
+# oapXHqdl55XFes7ubznpC96/grWcqIeOUEfp7Ksq05LcwVmri8i1Wwz7o1b4RTvx
+# IazbOS9MM6TB3pZrIKsDpP3V6wZ5E3+z3bMsi3AyR551rTCCBckwggSxoAMCAQIC
+# EBu1jyUq3yMASSjJrj1+7ScwDQYJKoZIhvcNAQEMBQAwfjELMAkGA1UEBhMCUEwx
+# IjAgBgNVBAoTGVVuaXpldG8gVGVjaG5vbG9naWVzIFMuQS4xJzAlBgNVBAsTHkNl
+# cnR1bSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTEiMCAGA1UEAxMZQ2VydHVtIFRy
+# dXN0ZWQgTmV0d29yayBDQTAeFw0yMTA1MzEwNjQzMDZaFw0yOTA5MTcwNjQzMDZa
+# MIGAMQswCQYDVQQGEwJQTDEiMCAGA1UEChMZVW5pemV0byBUZWNobm9sb2dpZXMg
+# Uy5BLjEnMCUGA1UECxMeQ2VydHVtIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MSQw
+# IgYDVQQDExtDZXJ0dW0gVHJ1c3RlZCBOZXR3b3JrIENBIDIwggIiMA0GCSqGSIb3
+# DQEBAQUAA4ICDwAwggIKAoICAQC9+Xj45tWADGSdhhuWZGc/IjoedQF97/tcZ4zJ
+# zFxrqZHmuULlIEub2pt7uZld2ZuAS9eEQCsn0+i6MLs+CRqnSZXvK0AkwpfHp+6b
+# Je+oCgCXhVqqndwpyeI1B+twTUrWwbNWuKFBOJvR+zF/j+Bf4bE/D44WSWDXBo0Y
+# +aomEKsq09DRZ40bRr5HMNUuctHFY9rnY3lEfktjJImGLjQ/KUxSiyqnwOKRKIm5
+# wFv5HdnnJ63/mgKXwcZQkpsCLL2puTRZCr+ESv/f/rOf69me4Jgj7KZrdxYq28yt
+# Oxykh9xGc14ZYmhFV+SQgkK7QtbwYeDBoz1mo130GO6IyY0XRSmZMnUCMe4pJshr
+# Aua1YkV/NxVaI2iJ1D7eTiew8EAMvE0Xy02isx7QBlrd9pPPV3WZ9fqGGmd4s7+W
+# /jTcvedSVuWz5XV710GRBdxdaeOVDUO5/IOWOZV7bIBaTxNyxtd9KXpEulKkKtVB
+# Rgkg/iKgtlswjbyJDNXXcPiHUv3a76xRLgezTv7QCdpw75j6VuZt27VXS9zlLCUV
+# yJ4ueE742pyehizKV/Ma5ciSixqClnrDvFASadgOWkaLOusm+iPJtrCBvkIApPjW
+# /jAux9JG9uWOdf3yzLnQh1vMBhBgu4M1t15n3kfsmUjxpKEV/q2MYo45VU85Frmx
+# Y53/twIDAQABo4IBPjCCATowDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUtqFU
+# OQLDoD+Oirz61PgcptE6Dv0wHwYDVR0jBBgwFoAUCHbNywf/JPbFze27kLzihDdG
+# dfcwDgYDVR0PAQH/BAQDAgEGMC8GA1UdHwQoMCYwJKAioCCGHmh0dHA6Ly9jcmwu
+# Y2VydHVtLnBsL2N0bmNhLmNybDBrBggrBgEFBQcBAQRfMF0wKAYIKwYBBQUHMAGG
+# HGh0dHA6Ly9zdWJjYS5vY3NwLWNlcnR1bS5jb20wMQYIKwYBBQUHMAKGJWh0dHA6
+# Ly9yZXBvc2l0b3J5LmNlcnR1bS5wbC9jdG5jYS5jZXIwOQYDVR0gBDIwMDAuBgRV
+# HSAAMCYwJAYIKwYBBQUHAgEWGGh0dHA6Ly93d3cuY2VydHVtLnBsL0NQUzANBgkq
+# hkiG9w0BAQwFAAOCAQEAUcKhWBYiEIv8hjHUwjLTXPhLoi9qPk34qwge7dXo+ucI
+# Dey3xh4OsnUFerEL+td0agAGH6TOqvJrfdgRwBEI1A5NYcU6qPqx4eOY6uJj/UH1
+# k30NvF2SO5GaZbrQX0y+TI1oAxAW1fHQBIqFM/k351suJmlCPLrNvNR66U2d2udD
+# +2NSgIUExCWVVfB+p58BxVso+ODOhnCmJzs5+zgumFNlInUt1/bdIiKRluvdaO0/
+# oxmX0zsliOw2Ej2pfs4CjQWakqcnbkWynGKGNw2kM47XqE7QShdDTMXxp2zSHlhs
+# FFF+ilSh9u+feXpdgZoWkA/hu/FKAPn53b7tquzOCjCCBrkwggShoAMCAQICEQDn
+# /2nHOzXOS5Em2HR8aKWHMA0GCSqGSIb3DQEBDAUAMIGAMQswCQYDVQQGEwJQTDEi
+# MCAGA1UEChMZVW5pemV0byBUZWNobm9sb2dpZXMgUy5BLjEnMCUGA1UECxMeQ2Vy
+# dHVtIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MSQwIgYDVQQDExtDZXJ0dW0gVHJ1
+# c3RlZCBOZXR3b3JrIENBIDIwHhcNMjEwNTE5MDUzMjA3WhcNMzYwNTE4MDUzMjA3
+# WjBWMQswCQYDVQQGEwJQTDEhMB8GA1UEChMYQXNzZWNvIERhdGEgU3lzdGVtcyBT
+# LkEuMSQwIgYDVQQDExtDZXJ0dW0gVGltZXN0YW1waW5nIDIwMjEgQ0EwggIiMA0G
+# CSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQDpEh8ENe25XXrFppVBvoplf0530W0l
+# ddNmjtv4YSh/f7eDQKFaIqc7tHj7ox+u8vIsJZlroakUeMS3i3T8aJRC+eQs4FF0
+# GqvkM6+WZO8kmzZfxmZaBYmMLs8FktgFYCzywmXeQ1fEExflee2OpbHVk665eXRH
+# jH7MYZIzNnjl2m8Hy8ulB9mR8wL/W0v0pjKNT6G0sfrx1kk+3OGosFUb7yWNnVkW
+# KU4qSxLv16kJ6oVJ4BSbZ4xMak6JLeB8szrK9vwGDpvGDnKCUMYL3NuviwH1x4gZ
+# G0JAXU3x2pOAz91JWKJSAmRy/l0s0l5bEYKolg+DMqVhlOANd8Yh5mkQWaMEvBRE
+# /kAGzIqgWhwzN2OsKIVtO8mf5sPWSrvyplSABAYa13rMYnzwfg08nljZHghquCJY
+# Ca/xHK9acev9UD7Y+usr15d7mrszzxhF1JOr1Mpup2chNSBlyOObhlSO16rwrffV
+# rg/SzaKfSndS5swRhr8bnDqNJY9TNyEYvBYpgF95K7p0g4LguR4A++Z1nFIHWVY5
+# v0fNVZmgzxD9uVo/gta3onGOQj3JCxgYx0KrCXu4yc9QiVwTFLWbNdHFSjBCt5/8
+# Q9pLuRhVocdCunhcHudMS1CGQ/Rn0+7P+fzMgWdRKfEOh/hjLrnQ8BdJiYrZNxvI
+# OhM2aa3zEDHNwwIDAQABo4IBVTCCAVEwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4E
+# FgQUvlQCL79AbHNDzqwJJU6eQ0Qa7uAwHwYDVR0jBBgwFoAUtqFUOQLDoD+Oirz6
+# 1PgcptE6Dv0wDgYDVR0PAQH/BAQDAgEGMBMGA1UdJQQMMAoGCCsGAQUFBwMIMDAG
+# A1UdHwQpMCcwJaAjoCGGH2h0dHA6Ly9jcmwuY2VydHVtLnBsL2N0bmNhMi5jcmww
+# bAYIKwYBBQUHAQEEYDBeMCgGCCsGAQUFBzABhhxodHRwOi8vc3ViY2Eub2NzcC1j
+# ZXJ0dW0uY29tMDIGCCsGAQUFBzAChiZodHRwOi8vcmVwb3NpdG9yeS5jZXJ0dW0u
+# cGwvY3RuY2EyLmNlcjA5BgNVHSAEMjAwMC4GBFUdIAAwJjAkBggrBgEFBQcCARYY
+# aHR0cDovL3d3dy5jZXJ0dW0ucGwvQ1BTMA0GCSqGSIb3DQEBDAUAA4ICAQC4k1l3
+# yUwV/ZQHCKCneqAs8EGTnwEUJLdDpokN/dMhKjK0rR5qX8nIIHzxpQR3TAw2IRw1
+# Uxsr2PliG3bCFqSdQTUbfaTq6V3vBzEebDru9QFjqlKnxCF2h1jhLNFFplbPJiW+
+# JSnJTh1fKEqEdKdxgl9rVTvlxfEJ7exOn25MGbd/wGPwuSmMxRJVO0wnqgS7kmoJ
+# jNF9zqeehFSDDP8ZVkWg4EZ2tIS0M3uZmByRr+1Lkwjjt8AtW83mVnZTyTsOb+FN
+# fwJY7DS4FmWhkRbgcHRetreoTirPOr/ozyDKhT8MTSTf6Lttg6s6T/u08mDWw6HK
+# 04ZRDfQ9sb77QV8mKgO44WGP31vXnVKoWVJpFBjPvjL8/Zck/5wXX2iqjOaLStFO
+# R/IQki+Ehn4zlcgVm22ZVCBPF+l8nAwUUShCtKuSU7GmZLKCmmxQMkSiWILTm8Et
+# VD6AxnJhoq8EnhjEEyUoflkeRF2WhFiVQOmWTwZRr44IxWGkNJC6tTorW5rl2Zl+
+# 2e9JLPYf3pStAPMDoPKIjVXd6NW2+fZrNUBeDo2eOa5Fn7Brs/HLQff5Xgris5Me
+# UbdVgDrF8uxO6cLPvZPo63j62SsNg55pTWk9fUIF9iPoRbb4QurjoY/woI1RAOKt
+# YtTic6aAJq3u83RIPpGXBSJKwx4KJAOZnCDCtTCCBoIwggRqoAMCAQICECjwd8Ec
+# Nr3+X3QyR3AnLgMwDQYJKoZIhvcNAQEMBQAwVjELMAkGA1UEBhMCUEwxITAfBgNV
+# BAoTGEFzc2VjbyBEYXRhIFN5c3RlbXMgUy5BLjEkMCIGA1UEAxMbQ2VydHVtIFRp
+# bWVzdGFtcGluZyAyMDIxIENBMB4XDTI2MDMxMTA3MzQ1NFoXDTM2MDIyNzA3MzQ1
+# NFowUDELMAkGA1UEBhMCUEwxITAfBgNVBAoMGEFzc2VjbyBEYXRhIFN5c3RlbXMg
+# Uy5BLjEeMBwGA1UEAwwVQ2VydHVtIFRpbWVzdGFtcCAyMDI2MIICIjANBgkqhkiG
+# 9w0BAQEFAAOCAg8AMIICCgKCAgEAuL3N8HD7EjXaGLYX241AE05JORMiLXd+6HcO
+# JbJsjnf3ZsF8nDq07vMOztSo/+t6NV/jEVNTdc04+y44WQ/lI8WydbCfdUkv42E2
+# Gy66O9ixC1pCe82jXCTjqt5ODCzUvw4UR0prGDKpPjM5DHzWYvA1lKpc1T1Gtv2g
+# AlYkXgzJ3P4LV5u7QPT6+Aze2oBDxNTbTd+qAoI+oh0eWhoWof17JH7y2embLaGe
+# c3n1k62ay4d5HB/mJM6GWF/R3+qqq4s5IgY+AZUvUePlcFSjHY4Tu1BGv6X/HE1s
+# vo67AE7gBrYRu7FiDftyle/mLb+VMvg0BIH925/1bh+MDdGj4Y/5sLnifY5iIzcK
+# rzP3Z6PHwXkdY7Z7j/vl4L3kH20zD96rvXT0YPJbb7a63kGfSjwxclMRGTLKy1Zu
+# pydSSiYD3up+IMLC+la44x19M6Sxd71L7EPE4loJuLJOK+A+6XFxP619BNFcGvlT
+# C0+9z4g2dp84SKXNUcDXW2/6kdzKWvLEFzTxxSKF/+22qRlLRubHdXFBrLy6iFpO
+# nT/8QID29gZbnVIp0kwmFe8rIh0EvLxZg1yFO3zJEhO/0B3GD0moa6OH5Oc/Vtbd
+# pCMW2USXtLOA14jw5UD8IkBZZS5FPcC71Og6kfL9+WuuSeE3iF4TDv/ogsy/gdKy
+# PRhnii0CAwEAAaOCAVAwggFMMHUGCCsGAQUFBwEBBGkwZzA7BggrBgEFBQcwAoYv
+# aHR0cDovL3N1YmNhLnJlcG9zaXRvcnkuY2VydHVtLnBsL2N0c2NhMjAyMS5jZXIw
+# KAYIKwYBBQUHMAGGHGh0dHA6Ly9zdWJjYS5vY3NwLWNlcnR1bS5jb20wHwYDVR0j
+# BBgwFoAUvlQCL79AbHNDzqwJJU6eQ0Qa7uAwDAYDVR0TAQH/BAIwADA5BgNVHR8E
+# MjAwMC6gLKAqhihodHRwOi8vc3ViY2EuY3JsLmNlcnR1bS5wbC9jdHNjYTIwMjEu
+# Y3JsMBYGA1UdJQEB/wQMMAoGCCsGAQUFBwMIMA4GA1UdDwEB/wQEAwIHgDAiBgNV
+# HSAEGzAZMAgGBmeBDAEEAjANBgsqhGgBhvZ3AgUBCzAdBgNVHQ4EFgQUIzlqKKua
+# Eqekp/If+UWav43+ggMwDQYJKoZIhvcNAQEMBQADggIBAGb+k5usC95OpgU8JK2H
+# E1XAEdNbhN+4FBjYoYJ0yUfoAuNU9h/ZcBE0YxNdJxHQlDb9zYvEumgceFHDEV/d
+# 33fcOEVLXrmtiPqI9JAqbjWtz0AylMKMx2ZqLVor2jzvSk7NPMtGFYVUjGb7lB/6
+# 3hXnPXi0+hSwBZ19EoPVnO/N97kAeUT2vE5lwZE6JQvGzcR1/tknxFkjSPMP2O6P
+# agRfZdLsFUq40IrVbSHWaNqm/TbzKqjxS1mHn/UhvjxjKnzwENhKGHk9IZRS5Lm1
+# hdV9x24g8F7c901NhFh1PlU3GTAuCMzMhyv/pIfZ96MUkOOcLGO9cu5qsSsmD8h0
+# j6Fd0YgENU4a/XOuQXiS2hC8VkinkMgBiHQbDJSFzzuqqflRphOPb6LKIENI2Hto
+# YKuS4CeqDtCHt+uFf5CEwZ4n1Kkumcbvqo3zmEvKO9hHqBFiItOPwbh/GOpXjTT9
+# u4/DSsGj3IlnKr/xwZ0I4s85h/2ql59Nytkp472mD5QkfHxQAFtpOqLNHGbyxRIT
+# JxxwIIWEiK3cAj/fAa5I4AN6IDrvo1xDv52w/Thi/O903ulNk3KDrvZakEMl2DR4
+# i0eXjKia814g5aHWqzhCo5bpMjw5yyLi5INMuivEtQOcFPApDPOnF3VhRy0SBGHf
+# ZHQn0WQWR4Su4lT3hGWMWvW4MYIGpjCCBqICAQEwajBWMQswCQYDVQQGEwJQTDEh
+# MB8GA1UEChMYQXNzZWNvIERhdGEgU3lzdGVtcyBTLkEuMSQwIgYDVQQDExtDZXJ0
+# dW0gQ29kZSBTaWduaW5nIDIwMjEgQ0ECEEQKDmLCfiXf4WR7ZG2502swDQYJYIZI
+# AWUDBAIBBQCggYgwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYJKoZIhvcN
+# AQkFMQ8XDTI2MDYwNDA3NDA1M1owHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcC
+# ARUwLwYJKoZIhvcNAQkEMSIEIHrLIjHTtKzseKwEpAU53y3d0SmEsg8vhn2C99LX
+# hU0bMA0GCSqGSIb3DQEBAQUABIIBgDx8LJwOQ0BkyQpel4Cv0TECAUun6pkf3OPY
+# ygSrAY7z8WsLlJQirgmTS04mNYTF2Q6OAPjjRKaAID5uzhkYGhaSJ6oH3eXQ01BD
+# ofaAWYj05fllx7eVkiYj64qdEcI1Eri6nxukvYtzYpeCqEt/uxeKnwIwJzJlJIi9
+# 9qIbkdImBGbTr1I4jowFf+JwLTZD/kkN1/CipAdqRTKEyxg00JxXvbXZ+SQ/8vSP
+# 9cMAxDTQP59TdOYOBK0rirIuHdM4aGyUx61lmEIkctzoPnBbt6paufJN9M6ilkRk
+# RcQeat/0x+EEpzGHyFV+pqki1g2WItTzcIrCFG1N7jXlmKONN2iRrXweJvHBt+wj
+# 1Wxe3YJgd7+RQRM3QX1bYj3d37XchY/3nXZm1L4uaIyXyJa9rtYvoJCSkCLMu2wt
+# /GZXprsjRtB5BCeSEx+aQU4AB4mU1Pg0T4LViir2KEYw1y6JgQJmkBKUx3PNMctK
+# ATp8kgWzVjvZDK9LIYssi9EPmBY/kKGCBAIwggP+BgkqhkiG9w0BCQYxggPvMIID
+# 6wIBATBqMFYxCzAJBgNVBAYTAlBMMSEwHwYDVQQKExhBc3NlY28gRGF0YSBTeXN0
+# ZW1zIFMuQS4xJDAiBgNVBAMTG0NlcnR1bSBUaW1lc3RhbXBpbmcgMjAyMSBDQQIQ
+# KPB3wRw2vf5fdDJHcCcuAzANBglghkgBZQMEAgIFAKCCAVYwGgYJKoZIhvcNAQkD
+# MQ0GCyqGSIb3DQEJEAEEMBwGCSqGSIb3DQEJBTEPFw0yNjA2MDQwNzQwNTNaMDcG
+# CyqGSIb3DQEJEAIvMSgwJjAkMCIEIIW+kOEK0kONfMkotq9IsJqyCBd87PiwEmxY
+# 05EFJcQ8MD8GCSqGSIb3DQEJBDEyBDBQaQNIKGFAe+rLcKA8MjWg/SD9LXmcLI0S
+# ME9RASXm0hwSfRkjCtKcpCu44eD3aAswgZ8GCyqGSIb3DQEJEAIMMYGPMIGMMIGJ
+# MIGGBBRXFGhBDKha80JO+RZKUTYQ9NONmDBuMFqkWDBWMQswCQYDVQQGEwJQTDEh
+# MB8GA1UEChMYQXNzZWNvIERhdGEgU3lzdGVtcyBTLkEuMSQwIgYDVQQDExtDZXJ0
+# dW0gVGltZXN0YW1waW5nIDIwMjEgQ0ECECjwd8EcNr3+X3QyR3AnLgMwDQYJKoZI
+# hvcNAQEBBQAEggIAm1rV35riWtPvMxeBqFBhqSHIMQNehXoZMZvfHh3MClxXLKp6
+# QDrT+k7dfZCm9N2Ntng6uxUywzVoVES13UmbzjBhSrEs6z/U6wurLJckkybptnnW
+# 5gJ6NSdOIQUmo6RVbvvvsRB/u2nihXW3MbAM7ZZ+tBwZU5VMF8rwk0qyay/orC/0
+# 8Nc/7lnQi3rYIXDDXIjIz9upJ/4ldlVXt9dQFr0q2/kQL13dUfT/Gr15xs7ykAqE
+# e5kSnHmIR4Z8lNz+jaq/X0Pz8aOKxbKeUz740ZbOCwK2PQ5NfuIK2dV1RbMcReNI
+# MpHskZ655Pmkdx1Wcu4IGCzCmRcGSZPl0s1hW36VmuMvbyOWae386YTpuzoTqiX+
+# OoAuVMVSOuIsFXOHx2CeD8XksES1k58K+Rang/QrcgrrWxP1AVtby0KBCPWAifOG
+# 6u0riIuhEDqBSEz6DhUwgV7imAvG5aAyAp4TQ1i65DlBG+/qC3q1akoeQaTPpFFX
+# a2wMyqzSks8YdKGxEm2ftVqiVFhLP5ywZGFztqIOF02AAqB8xthDqtqwDx03FwYR
+# WBthrPnjQPFIvJ1EiOvFgY0QNB/XyIVrDAr9zlSezeAPJgZI2YNFCHaOcvrbjlJ4
+# 6Guz5dzYcKpp96FJqJ3ipbzwQkcMD2vvAv8UX8OJYVtgsGPLTwhKYWGfk+0=
 # SIG # End signature block
