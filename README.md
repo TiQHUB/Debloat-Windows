@@ -21,8 +21,6 @@ It also:
 * Is **Intune & OOBE-aware**
 * Logs all actions for auditing
 
----
-
 ## ✨ Key Features
 
 * 🏭 **OEM-aware removal**
@@ -39,7 +37,6 @@ It also:
 * ⚙ Custom whitelist support
 * ⏱ Runtime tracking
 
----
 
 ## 🖥 Supported Operating Systems
 
