@@ -39,7 +39,7 @@ if ($tasksToRemove) {
     $arguments += " -TasksToRemove `"$tasksToRemove`""
 }
 
-$pathwithfile = "$templateFilePath\removebloat.ps1"
+$pathwithfile = "$templateFilePath\DebloatWindows.ps1"
 
 # Execute the script with parameters
 invoke-expression -Command "$pathwithfile $arguments"
