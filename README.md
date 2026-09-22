@@ -1,9 +1,5 @@
 # 🧹 Windows 10 / 11 Enterprise Debloat Script
 
-**OEM Bloatware Removal & Privacy Hardening**
-
----
-
 ## 📌 Overview
 
 This PowerShell script is a **comprehensive Windows debloating and privacy-hardening solution** designed for **fresh Windows 10 and Windows 11 builds**.
