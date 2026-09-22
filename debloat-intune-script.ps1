@@ -12,7 +12,7 @@ Else {
 $templateFilePath = "C:\ProgramData\Debloat"
 
 $zipUrl = "https://github.com/TiQHUB/Debloat-Windows/blob/main/DebloatWindows.zip"
-$zipPath = "$templateFilePath\RemoveBloat.zip"
+$zipPath = "$templateFilePath\DebloatWindows.zip"
 $extractPath = "$templateFilePath"
 
 Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
