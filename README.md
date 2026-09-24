@@ -37,7 +37,6 @@ It also:
 * ⚙ Custom whitelist support
 * ⏱ Runtime tracking
 
-
 ## 🖥 Supported Operating Systems
 
 | OS                | Supported |
@@ -45,16 +44,12 @@ It also:
 | Windows 10        | ✅        |
 | Windows 11        | ✅        |
 
----
-
 ## 📂 Logging & Output
 
 | Path                                 | Description        |
 | ------------------------------------ | ------------------ |
 | `C:\ProgramData\Debloat\Debloat.log` | Full execution log |
 | Console Output                       | Real-time progress |
-
----
 
 ## ⚙️ Script Parameters
 
@@ -72,7 +67,6 @@ param (
 | `customwhitelist` | Apps you **do NOT want removed** |
 | `TasksToRemove`   | Custom scheduled tasks to delete |
 
----
 
 ## ▶️ Usage Examples
 
@@ -102,8 +96,6 @@ param (
   -TasksToRemove "OfficeTelemetryAgentFallBack"
 ```
 
----
-
 ## 🧠 What This Script Does
 
 ### 🧹 Application Removal
@@ -122,8 +114,6 @@ param (
 | Lenovo  | Vantage, AI Now, Smart Appearance        |
 | Samsung | Bixby, Galaxy Book services              |
 
----
-
 ## 🔐 Privacy & Security Hardening
 
 * Disable **Cortana**
@@ -136,8 +126,6 @@ param (
 * Disable **Advertising ID**
 * Disable **Gaming popups**
 
----
-
 ## 🎮 Gaming & Consumer Features Removed
 
 * Xbox services & scheduled tasks
@@ -147,8 +135,6 @@ param (
 * Windows Feeds
 * Widgets
 * Live Tiles
-
----
 
 ## 🪟 Start Menu Management
 
@@ -162,8 +148,6 @@ param (
 * Applies clean default layout
 * Safe for Autopilot pre-login state
 
----
-
 ## 🧠 Intune & OOBE Awareness
 
 * Detects **OOBE state**
@@ -173,8 +157,6 @@ param (
   * Required enterprise apps
   * Intune-deployed software
 
----
-
 ## 🛠 Safety & Design Notes
 
 * ✔ Runs elevated automatically
@@ -183,8 +165,6 @@ param (
 * ✔ Avoids breaking Windows core components
 * ✔ Extensive logging
 * ✔ Certificate-signed script compatible
-
----
 
 ## ⚠️ Important Notes
 
