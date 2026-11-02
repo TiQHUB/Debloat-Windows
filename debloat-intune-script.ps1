@@ -11,7 +11,7 @@ Else {
 
 $templateFilePath = "C:\ProgramData\Debloat"
 
-$zipUrl = "https://github.com/TiQHUB/Debloat-Windows/blob/main/DebloatWindows.zip"
+$zipUrl = "https://github.com/TiQHUB/Debloat-Windows/raw/main/DebloatWindows.zip"
 $zipPath = "$templateFilePath\DebloatWindows.zip"
 $extractPath = "$templateFilePath"
 

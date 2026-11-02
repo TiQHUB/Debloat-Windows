@@ -16,7 +16,186 @@
 .INPUTS
 .OUTPUTS
 C:\ProgramData\Debloat\Debloat.log
-
+.NOTES
+  Version:        5.6.5
+  Author:         Andrew Taylor
+  Twitter:        @AndrewTaylor_2
+  WWW:            andrewstaylor.com
+  Creation Date:  08/03/2022
+  Purpose/Change: Initial script development
+  Change: 12/08/2022 - Added additional HP applications
+  Change 23/09/2022 - Added Clipchamp (new in W11 22H2)
+  Change 28/10/2022 - Fixed issue with Dell apps
+  Change 23/11/2022 - Added Teams Machine wide to exceptions
+  Change 27/11/2022 - Added Dell apps
+  Change 07/12/2022 - Whitelisted Dell Audio and Firmware
+  Change 19/12/2022 - Added Windows 11 start menu support
+  Change 20/12/2022 - Removed Gaming Menu from Settings
+  Change 18/01/2023 - Fixed Scheduled task error and cleared up $null posistioning
+  Change 22/01/2023 - Re-enabled Telemetry for Endpoint Analytics
+  Change 30/01/2023 - Added Microsoft Family to removal list
+  Change 31/01/2023 - Fixed Dell loop
+  Change 08/02/2023 - Fixed HP apps (thanks to http://gerryhampsoncm.blogspot.com/2023/02/remove-pre-installed-hp-software-during.html?m=1)
+  Change 08/02/2023 - Removed reg keys for Teams Chat
+  Change 14/02/2023 - Added HP Sure Apps
+  Change 07/03/2023 - Enabled Location tracking (with commenting to disable)
+  Change 08/03/2023 - Teams chat fix
+  Change 10/03/2023 - Dell array fix
+  Change 19/04/2023 - Added loop through all users for HKCU keys for post-OOBE deployments
+  Change 29/04/2023 - Removes News Feed
+  Change 26/05/2023 - Added Set-ACL
+  Change 26/05/2023 - Added multi-language support for Set-ACL commands
+  Change 30/05/2023 - Logic to check if gamepresencewriter exists before running Set-ACL to stop errors on re-run
+  Change 25/07/2023 - Added Lenovo apps (Thanks to Simon Lilly and Philip Jorgensen)
+  Change 31/07/2023 - Added LenovoAssist
+  Change 21/09/2023 - Remove Windows backup for Win10
+  Change 28/09/2023 - Enabled Diagnostic Tracking for Endpoint Analytics
+  Change 02/10/2023 - Lenovo Fix
+  Change 06/10/2023 - Teams chat fix
+  Change 09/10/2023 - Dell Command Update change
+  Change 11/10/2023 - Grab all uninstall strings and use native uninstaller instead of uninstall-package
+  Change 14/10/2023 - Updated HP Audio package name
+  Change 31/10/2023 - Added PowerAutomateDesktop and update Microsoft.Todos
+  Change 01/11/2023 - Added fix for Windows backup removing Shell Components
+  Change 06/11/2023 - Removes Windows CoPilot
+  Change 07/11/2023 - HKU fix
+  Change 13/11/2023 - Added CoPilot removal to .Default Users
+  Change 14/11/2023 - Added logic to stop errors on HP machines without HP docs installed
+  Change 14/11/2023 - Added logic to stop errors on Lenovo machines without some installers
+  Change 15/11/2023 - Code Signed for additional security
+  Change 02/12/2023 - Added extra logic before app uninstall to check if a user has logged in
+  Change 04/01/2024 - Added Dropbox and DevHome to AppX removal
+  Change 05/01/2024 - Added MSTSC to whitelist
+  Change 25/01/2024 - Added logic for LenovoNow/LenovoWelcome
+  Change 25/01/2024 - Updated Dell app list (thanks Hrvoje in comments)
+  Change 29/01/2024 - Changed /I to /X in Dell command
+  Change 30/01/2024 - Fix Lenovo Vantage version
+  Change 31/01/2024 - McAfee fix and Dell changes
+  Change 01/02/2024 - Dell fix
+  Change 01/02/2024 - Added logic around appxremoval to stop failures in logging
+  Change 05/02/2024 - Added whitelist parameters
+  Change 16/02/2024 - Added wildcard to dropbox
+  Change 23/02/2024 - Added Lenovo SmartMeetings
+  Change 06/03/2024 - Added Lenovo View and Vantage
+  Change 08/03/2024 - Added Lenovo Smart Noise Cancellation
+  Change 13/03/2024 - Added updated McAfee
+  Change 20/03/2024 - Dell app fixes
+  Change 02/04/2024 - Stopped it removing Intune Management Extension!
+  Change 03/04/2024 - Switched Win32 removal from whitelist to blacklist
+  Change 10/04/2024 - Office uninstall string fix
+  Change 11/04/2024 - Added Office support for multi-language
+  Change 17/04/2024 - HP Apps update
+  Change 19/04/2024 - HP Fix
+  Change 24/04/2024 - Switched provisionedpackage and appxpackage arround
+  Change 02/05/2024 - Fixed notlike to notin
+  Change 03/05/2024 - Change $uninstallprograms
+  Change 19/05/2024 - Disabled feeds on Win11
+  Change 21/05/2024 - Added QuickAssist to removal after security issues
+  Change 25/05/2024 - Whitelist array fix
+  Change 29/05/2025 - Uninstall fix
+  Change 31/05/2024 - Re-write for manufacturer bloat
+  Change 03/06/2024 - Added function for removing Win32 apps
+  Change 03/06/2024 - Added registry key to block "Tell me about this picture" icon
+  Change 06/06/2024 - Added keys to block Windows Recall
+  Change 07/06/2024 - New fixes for HP and McAfee (thanks to Keith Hay)
+  Change 24/06/2024 - Added Microsoft.SecHealthUI to whitelist
+  Change 26/06/2024 - Fix when run outside of ESP
+  Change 04/07/2024 - Dell fix for "|"
+  Change 08/07/2024 - Made whitelist more standard across platforms and removed bloat list to use only whitelisting
+  Change 08/07/2024 - Added start.bin
+  Change 12/07/2024 - Added logic around start.bin
+  Change 15/07/2024 - Removed Lenovo bookmarks
+  Change 18/07/2024 - Updated detection for removing Office Home
+  Change 23/07/2024 - Lenovo camera fix for E14
+  Change 25/07/2024 - Added MS Teams to whitelist
+  Change 07/08/2024 - Lenovo fix
+  Change 14/08/2024 - Whitelisted any language packs
+  Change 19/08/2024 - Added version to log for troubleshooting
+  Change 19/08/2024 - Added blacklist and whitelist for further protection
+  Change 22/08/2024 - Added Poly Lens for HP
+  Change 02/09/2024 - Added all possible languages to Office Home removal
+  Change 03/09/2024 - OOBE Logic update for Win32 app removal
+  Change 04/09/2024 - Lenovo updates
+  Change 17/09/2024 - Added HP Wolf Security
+  Change 18/09/2024 - Removed ODT for office removal to speed up script
+  Change 24/09/2024 - Fixed uninstall for HP Wolf Security
+  Change 25/09/2024 - Removed locales as Teams is now combined
+  Change 08/10/2024 - ODT Fix
+  Change 04/11/2024 - Block games in search bar
+  Change 03/12/2024 - Fix for HP AppxPackage Removal
+  Change 10/12/2024 - Added registry keys to not display screens during OOBE when using Device prep (thanks Rudy)
+  Change 07/01/2025 - Added spotlight removal keys
+  Change 10/01/2025 - Added Lenovo Now
+  Change 21/01/2025 - Edge Surf game fix
+  Change 27/01/2025 - Added Logitech Download assistant
+  Change 27/01/2025 - Converted from CRLF to LF
+  Change 06/02/2025 - Added the t back to transcrip(t)
+  Change 10/02/2025 - Fixed logic for Logitech Registry key
+  Change 07/03/2025 - commented out Logitech pending further testing
+  Change 10/03/2025 - Fix for Windows backup version number
+  Change 15/03/2025 - Added McAfee AppX package
+  Change 25/03/2025 - Fixed typo to stop the transcript
+  Change 01/04/2025 - Changed WMIC to CIM
+  Change 02/04/2025 - Removed duplicate camera
+  Change 03/04/2025 - Added Codecs to whitelist
+  Change 04/04/2025 - Removed store from blacklist
+  Change 06/04/2025 - PR Merge to remove duplicates
+  Change 15/04/2025 - PR Merge to fix reg flush/close
+  Change 16/04/2025 - PR merge with option to remove all office apps
+  Change 22/04/2025 - Added HP Performance Advisor
+  Change 24/04/2025 - Added HP Presence Video and re-shuffled Wolf to remove in corect order
+  Change 30/04/2025 - PR Merge to add time checks
+  Change 01/05/2025 - Removed StorePurchaseApp from bloat
+  Change 09/05/2025 - Added TrackPoint Quick Menu (Lenovo)
+  Change 13/05/2025 - Fixed TrackPoint (hopefully)
+  Change 04/06/2025 - Addex X-Rite for Lenovo
+  Change 14/07/2025 - Added GameDVR Popup fix
+  Change 13/08/2025 - Blocked consumer scheduled tasks
+  Change 13/08/2025 - Added option to add your own tasks via parameter
+  Change 20/08/2025 - Removed win32_product commands and changed HP wolf
+  Change 29/08/2025 - Fixed issue with Copilot registry key
+  Change 09/09/2025 - Hopefully fixed HP apps
+  Change 25/09/2025 - Updated uninstallers for HP apps
+  Change 28/09/2025 - Added HP Analytics Service
+  Change 02/10/2025 - Fix on Dell uninstall
+  Change 07/10/2025 - Added the rest of stop-transcript which code signing keeps stealing
+  Change 23/10/2025 - Added Samsung bloat
+  Change 06/11/2025 - Added new services to McAfee removal
+  Change 06/11/2025 - Added Lenovo AI Now apps and processes
+  Change 06/11/2025 - The usual transcript fix
+  Change 20/11/2025 - Added get-package uninstall for HP and Fixed McAfee (for now)
+  Change 03/12/2025 - Added Lenovo apps
+  Change 12/12/2025 - Various fixes with help from tlit60608-NKenny
+  Change 12/12/2025 - Added custom bloat list parameter
+  Change 13/01/2026 - HP get-package parameter fix
+  Change 20/01/2025 - Added Dell Optimizer
+  Change 06/02/2026 - Added Acer bloat
+  Change 10/02/2026 - Added Asus bloat and some fixes
+  Change 12/02/2026 - Dell and HP fixes
+  Change 20/03/2026 - Added Acer apps and McAfee WebAdvisor
+  Change 13/04/2026 - Changed admin group lookup for multi-language support
+  Change 09/05/2026 - Dell update
+  Change 27/05/2026 - Defaultuser0 start menu fix (thanks to https://github.com/likwidtek)
+  Change 04/06/2026 - Added shortcuts from Start Menu on German builds
+  Change 27/06/2026 - Apply all HKCU settings to default user hive for new user support
+  Change 16/07/2026 - Added better regex to stop Dell Command Update from removing anything with update in the name
+  Change 31/07/2026 - Removed OneDrive Photos App (Thanks to Nicky De Westerlinck)
+  Change 06/08/2026 - Removed OfficeHub because it removes M365 Copilot (thanks Microsoft)
+  Change 06/08/2026 - Added Lenovo Smart Storage with it's own uninstall because they don't like common parameters across apps
+  Change 10/08/2026 - Lenovo fixes
+  Change 10/08/2026 - Lenovo AI Now silent install
+  Change 11/08/2026 - Fixed $builtin to BUILTIN
+  Change 11/08/2026 - Added Lenovo Smart Meetings
+  Change 13/08/2026 - Added check for Commercial Vantage before removing Lenovo vantage
+  Change 24/08/2026 - Dell Process fix and check function (thanks to https://github.com/bdudley-cw)
+  Change 25/08/2026 - Added parameter to skip Start Menu changes
+  Change 30/08/2026 - Added fix for Dell Optimizer silent install
+  Change 30/08/2026 - Added support for arrays on test-criticalprocesses function
+  Change 02/09/2026 - Dell Optimizer fix (again)
+  Change 02/09/2026 - Uninstall change to wait for previous app to finish
+  Change 03/09/2026 - Various fixed from kitleyn (https://github.com/kitleyn)
+  Change 07/10/2026 - HP Uninstall fixes
+N/A
 #>
 
 ############################################################################################################
@@ -1805,6 +1984,30 @@ function parseExeUninstall
     )
 
     $pattern = ' +(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)'
+    $exeString = $exeString.Trim()
+
+    ## Unquoted path containing spaces (e.g. HP: c:\Program Files\HP\...\setup.exe), take everything up to the first .exe as the executable
+    if (($exeString -notmatch '^"') -and ($exeString -match '^(?<exe>[^"]+?\.exe)(?:\s+(?<args>.*))?$'))
+    {
+        $exeArgs = @()
+        if ($matches['args'])
+        {
+            $exeArgs = $matches['args'].Trim() -split $pattern
+        }
+        return @($matches['exe']) + $exeArgs
+    }
+    $exeString = $exeString.Trim()
+
+    ## Unquoted path containing spaces (e.g. HP: c:\Program Files\HP\...\setup.exe), take everything up to the first .exe as the executable
+    if (($exeString -notmatch '^"') -and ($exeString -match '^(?<exe>[^"]+?\.exe)(?:\s+(?<args>.*))?$'))
+    {
+        $exeArgs = @()
+        if ($matches['args'])
+        {
+            $exeArgs = $matches['args'].Trim() -split $pattern
+        }
+        return @($matches['exe']) + $exeArgs
+    }
 
     return $exeString -split $pattern
 }
@@ -4051,8 +4254,8 @@ Stop-Transcript
 # SIG # Begin signature block
 # MIIgyAYJKoZIhvcNAQcCoIIguTCCILUCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCA5omRk5sDFzpNF
-# GezDc7ALQsUYKsaKq+Buig0QdXYdfKCCGXgwggZkMIIETKADAgECAhAS8XA+9Ydg
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBdkOHjs3iCsgHz
+# Ca3ZCYi2qQZtgR5fK6zGKSChQU0V36CCGXgwggZkMIIETKADAgECAhAS8XA+9Ydg
 # /3YhZAcZstc+MA0GCSqGSIb3DQEBCwUAMFYxCzAJBgNVBAYTAlBMMSEwHwYDVQQK
 # ExhBc3NlY28gRGF0YSBTeXN0ZW1zIFMuQS4xJDAiBgNVBAMTG0NlcnR1bSBDb2Rl
 # IFNpZ25pbmcgMjAyMSBDQTAeFw0yNjA3MDIxNTEwMjdaFw0yNzA3MDIxNTEwMjZa
@@ -4192,36 +4395,36 @@ Stop-Transcript
 # MB8GA1UEChMYQXNzZWNvIERhdGEgU3lzdGVtcyBTLkEuMSQwIgYDVQQDExtDZXJ0
 # dW0gQ29kZSBTaWduaW5nIDIwMjEgQ0ECEBLxcD71h2D/diFkBxmy1z4wDQYJYIZI
 # AWUDBAIBBQCggYgwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYJKoZIhvcN
-# AQkFMQ8XDTI2MDkwMzEwMTAzMlowHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcC
-# ARUwLwYJKoZIhvcNAQkEMSIEIFLHF40dNt7A7rVxSpPDVaFKGjYdhqeiyLtn9eM3
-# 0rsQMA0GCSqGSIb3DQEBAQUABIIBgFUBFQv/vtWLcZF+ZZXdF9JdUBj1bfutfC4t
-# 2FXv4LUa3J46iqL5Ezs1FOc90MYjLaO0nSkYZuMV3HJYcNzOGquDPYqsxPJa1rNZ
-# 0dNEeqjDmL0J2kqBXmxcO14bEbksJLIHD+9OqOtaA4GhUsWxeIQWUVPYJEkL2Lxb
-# DrSDXuUWQ5mMon60UGnyrHc8i2shrWvvpKO9FvWBtoEc9at9hqT7IGCanPTSL9ly
-# b3lXy2Nudy8hkeXwk98KybRQ4vYmuy2Jxtw8PmfpDrS/gNSkruz0GsdYsEjvAQLd
-# 3BVbfS/3GC8Hfo5V4zUmzMhpIamQARLUXU0FEImftNgD4rYF2Pd6gyZha0L0uswR
-# O9iKqS64b92hwGG1qdfOMzk7Zzk3G45T22GBtEVTPMMCU77k0V1WFSe/VvJCS5Bv
-# 0cdlS3w2tOVlbeo8+e3Z7olPMta2xVXxwm2zffO3fYF1XgG5zvm9EbOOKl4v4Fh/
-# i+LRkegqFm6LgakQRYg2ZVCBVmmXVKGCBAIwggP+BgkqhkiG9w0BCQYxggPvMIID
+# AQkFMQ8XDTI2MTAwNzE3NDgyN1owHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcC
+# ARUwLwYJKoZIhvcNAQkEMSIEIBLc7FDhOlBXurmMwcFkq8BHeTI4lUWPJCxfG4iD
+# lWaoMA0GCSqGSIb3DQEBAQUABIIBgJwvp0joKeHIBD8it/ZwUeYGNNqhXIbKNfXT
+# rWDiRVxvPsf4ZxAXcrrOxxT/jvXcVW/E9kSwTFcwmQIbgk3JN4+u5h8gGfQaA4Gy
+# MPBPpDyIn1Wuo+QUh4O0VaIjN4k99Yw5XErSPypg0qdEDnuzRE4/aQx+NU7Rfrry
+# iZ/8VdyaLYO3PK3JSRtGD9yFcv5AROn3Pk7+CLOENmiCUIugy/JOLYEHtgRBNcKG
+# DZpyTe7Txc7HYbx7QXVbfTGFllA+uNWsoa+m/eUxO+jzSvHFDf7PsqXJmoFMkRie
+# P7KQPx4dYMz9hCoAgc49E6aBnSTBy/1CcF0wSfK2Eel+AvJk/XNiNR8mR64sjolI
+# QmLkrvsPbaMInr1NdYG+X9rKvqUPnekf7x5Vmfhv7IORP+zDWCfoKv1J/j4iaVdI
+# bii4aQX9Egpz2LIuQLZfI/xo5CWdV35wTA87y0jRzn2Z6FTVFiarewlTo+eYWj/K
+# 2PiOLt5O8hAEt8RqMUb0igFxctIBJKGCBAIwggP+BgkqhkiG9w0BCQYxggPvMIID
 # 6wIBATBqMFYxCzAJBgNVBAYTAlBMMSEwHwYDVQQKExhBc3NlY28gRGF0YSBTeXN0
 # ZW1zIFMuQS4xJDAiBgNVBAMTG0NlcnR1bSBUaW1lc3RhbXBpbmcgMjAyMSBDQQIQ
 # KPB3wRw2vf5fdDJHcCcuAzANBglghkgBZQMEAgIFAKCCAVYwGgYJKoZIhvcNAQkD
-# MQ0GCyqGSIb3DQEJEAEEMBwGCSqGSIb3DQEJBTEPFw0yNjA5MDMxMDEwMzNaMDcG
+# MQ0GCyqGSIb3DQEJEAEEMBwGCSqGSIb3DQEJBTEPFw0yNjEwMDcxNzQ4MjhaMDcG
 # CyqGSIb3DQEJEAIvMSgwJjAkMCIEIIW+kOEK0kONfMkotq9IsJqyCBd87PiwEmxY
-# 05EFJcQ8MD8GCSqGSIb3DQEJBDEyBDDVrKlYscOX47X/PQuzuPh1ZJvgOKIHcgl6
-# 6y6JXoml8DdWF/vVfRDu+p8iJChH2d8wgZ8GCyqGSIb3DQEJEAIMMYGPMIGMMIGJ
+# 05EFJcQ8MD8GCSqGSIb3DQEJBDEyBDBoqY3PeS0nt5Ds+2wdSDUE94XKmQ64h9Pe
+# qT7U8JTsk6ngl8n1W4w+vTHLN8UNOscwgZ8GCyqGSIb3DQEJEAIMMYGPMIGMMIGJ
 # MIGGBBRXFGhBDKha80JO+RZKUTYQ9NONmDBuMFqkWDBWMQswCQYDVQQGEwJQTDEh
 # MB8GA1UEChMYQXNzZWNvIERhdGEgU3lzdGVtcyBTLkEuMSQwIgYDVQQDExtDZXJ0
 # dW0gVGltZXN0YW1waW5nIDIwMjEgQ0ECECjwd8EcNr3+X3QyR3AnLgMwDQYJKoZI
-# hvcNAQEBBQAEggIARy1ag63l8DP5G6dmk9WNecu6wpK014fpPTZVuYHwR97ezRoG
-# cTkbOuX16PAFYJ58qgeGdeQfwA8xog3Jl5vXtE1Rf6wSEtNekXgwsoZLiPxqHECa
-# CkijkK5x0XFQBgSES23JO7SDGHKXIfsdRop0ve/I2hQMrv9z338/wYkQ3yZ8w86Y
-# 2DJocVFGCy0Zsb5bBoZfXFM9CO/NReObmRG8g3leNBRS4dziKUx7VNPv08fkl+4w
-# hUrdEzclcSzzMNMyjs0l0cx6OoEJ/3oczDYOTM+NPtqIR2bCCJv/9EEkT5jYFDV0
-# tqO7tM/oWeA8sLNvvlyMw8J+L1FkUPJN0pGSYlqY/Ahu6eXF8koE4/gj9tn7qY+B
-# EldKpRG+OOrae8BTy+G7CIFKGQXONwYsiwejao5bMkNlYFZ3Q49xmxYX6KHWXsDr
-# OilKvohtqqnpHguqmFUWccdtCmAmJ/q5ztEt07lEBoYsiUkBDvzWQFv2A7xGI/5P
-# EkZZCZhgUr2sIPTw+4PnIL4bTm8lS+4YSzyJGkLBAEni8c1CL5IqSQ6EtA5OfbZ3
-# WUURcQ4tsZLX/ceUUYs7CN4op/MM1gbG1xm/J8vVrSgRuV3w9stAYVAaW+IrV2h4
-# wI6JIq6vJwW0rbFSl+jsvz2lDHaOhKH+mTbZaKx7wWHjaD+jFsWcBb7zI7E=
+# hvcNAQEBBQAEggIAiNL0busGdPlHyd8dQV1p3eFP4KkUTnvPOPYpGxT5iodRkaJ3
+# pG85SRVEtgDNSwKiU3/f5tM59oSBCqrZHBng+RnBxkjL8sNVIvq3Y6r3A6caLuiq
+# GE1aYkX4mlO++KOjAVSbHRVTPlTldHCrbKSdAtT6N11lvN4fR5Kppzt/adawzU6U
+# syKd0MB/X2WOQFvWvlIT+1D1RPI80qIikJgZXHbOVDv/SOjTYYgX7VE86HdjWIdU
+# pwgD+zjXeeQwzM2RUMyMx1QQruJMuw+DDXbWbuiQwXgKWmC84N2P04Ggnm4T+aUD
+# jFEkwt6c9fv7bVNadWJ4GxIzz+SVfg0mksyqau4pTlKRoAnk827BiBHBjY+8mQUh
+# 253mV/F01j101LfjNA+nN9mbwwbDc84ykKHtiNhjWmxLctHFkRuglNjJQzDzPpPN
+# yRP6TN+CyUmypVPxlu/oWaqW33s6rVVXapEmK/1uVrxpfal12HL771w8y6pEymvk
+# Pv58z5qYbfa1fwD7e1q1r9CaBZHppy5LeUeOtKjvlke/PeNNIotgJS58PeaTBlwH
+# K1cF5xFeXAnyuQBPNAl89hzelkje6N253YrwYP75ku61gAIl63HYPTUMw6lEzYCN
+# af2dPDhaElOy6he6OQloZzCakX0GJdLVWJcHb0gR8jyzL00Uhyq2Ac1suM8=
 # SIG # End signature block
